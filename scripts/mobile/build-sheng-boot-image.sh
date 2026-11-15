@@ -106,8 +106,10 @@ build_initramfs() {
   # Install shared Luma OSTree boot hook
   install -D -m 0755 "$repo_root/scripts/mobile/common/initramfs/luma-ostree-boot.sh" \
     "$stage/usr/lib/luma/luma-ostree-boot.sh"
-  install -D -m 0644 "$repo_root/scripts/mobile/common/initramfs/50-luma-ostree-default.sh" \
-    "$stage/etc/luma-ostree-default.sh"
+  if [ -f "$repo_root/scripts/mobile/common/initramfs/hooks-extra/50-luma-ostree-default.sh" ]; then
+    install -D -m 0755 "$repo_root/scripts/mobile/common/initramfs/hooks-extra/50-luma-ostree-default.sh" \
+      "$stage/etc/luma-ostree-default.sh"
+  fi
 
   # If no base initramfs was provided, install busybox + minimal /init that invokes luma-ostree-boot.sh
   if [ ! -e "$stage/init" ]; then
@@ -139,8 +141,9 @@ while [ $i -lt 100 ]; do
   i=$((i + 1))
 done
 
-. /etc/luma-ostree-default.sh
-. /usr/lib/luma/luma-ostree-boot.sh
+if [ -r /usr/lib/luma/luma-ostree-boot.sh ]; then
+  . /usr/lib/luma/luma-ostree-boot.sh
+fi
 
 ROOT_DEV=""
 BOOT_DEV=""
@@ -167,17 +170,17 @@ mkdir -p /sysroot
 mount -o rw "$ROOT_DEV" /sysroot
 
 if [ -n "$BOOT_DEV" ] && [ -b "$BOOT_DEV" ]; then
-  mkdir -p /mnt/luma-boot
-  mount -o ro "$BOOT_DEV" /mnt/luma-boot || true
-  luma_resolve_ostree_deploy /sysroot /mnt/luma-boot "$(cat /proc/cmdline)" || true
-  umount /mnt/luma-boot 2>/dev/null || true
-else
-  luma_resolve_ostree_deploy /sysroot /sysroot/boot "$(cat /proc/cmdline)" || true
+  mkdir -p /sysroot/boot
+  mount -o ro "$BOOT_DEV" /sysroot/boot || true
 fi
 
-if [ -n "${LUMA_OSTREE_DEPLOY:-}" ] && [ -d "/sysroot${LUMA_OSTREE_DEPLOY}" ]; then
-  luma_prepare_ostree_sysroot /sysroot "$LUMA_OSTREE_DEPLOY"
-  exec switch_root /sysroot${LUMA_OSTREE_DEPLOY} /sbin/init
+if command -v luma_ostree_resolve >/dev/null 2>&1 && luma_ostree_resolve /sysroot; then
+  luma_ostree_apply /sysroot "$(cat /proc/cmdline)" || true
+  if [ -n "${LUMA_OSTREE_DEPLOY:-}" ] && [ -d "/sysroot/ostree/${LUMA_OSTREE_DEPLOY}" ]; then
+    DEPLOY_PATH="/sysroot/ostree/${LUMA_OSTREE_DEPLOY}"
+    mount --bind /sysroot "$DEPLOY_PATH/sysroot" 2>/dev/null || true
+    exec switch_root "$DEPLOY_PATH" /sbin/init
+  fi
 fi
 
 exec switch_root /sysroot /sbin/init
