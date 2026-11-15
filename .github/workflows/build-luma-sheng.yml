@@ -57,7 +57,7 @@ jobs:
       - name: Clone and verify Xiaomi Pad 6S Pro firmware
         run: |
           git clone --depth 1 https://github.com/ianchb/sheng-firmware.git /tmp/sheng-firmware
-          while IFS=$'\t' read -r kind mode sha256 relpath; do
+          while IFS=$'\t' read -r kind mode sha256 relpath target; do
             [ "$kind" = "F" ] || continue
             printf '%s  /tmp/sheng-firmware/%s\n' "$sha256" "$relpath" | sha256sum -c --quiet -
           done < devices/xiaomi/sheng/firmware.manifest

@@ -133,7 +133,7 @@ if [ -n "$firmware_dir" ]; then
   echo "=== [2/18] Building luma-sheng-firmware ==="
   fw_stage="$SRC/luma-sheng-firmware-20260417/firmware"
   mkdir -p "$fw_stage"
-  while IFS=$'\t' read -r kind mode sha256 relpath; do
+  while IFS=$'\t' read -r kind mode sha256 relpath target; do
     [ "$kind" = "F" ] || continue
     src_file=""
     if [ -f "$firmware_dir/$relpath" ]; then
