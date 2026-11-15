@@ -100,9 +100,10 @@ dnf install -y \
   rpm-build rpmdevtools createrepo_c git curl wget tar xz gzip zstd patch \
   gcc gcc-c++ make cmake meson ninja-build autoconf automake libtool pkgconf-pkg-config \
   systemd-devel systemd-rpm-macros glib2-devel libgudev-devel polkit-devel \
-  protobuf-c-devel libqrtr-glib-devel libqmi-devel json-c-devel \
+  protobuf-c-devel protobuf-c-compiler protobuf-compiler libqrtr-glib-devel libqmi-devel libmbim-devel json-c-devel \
   alsa-lib-devel tinycompress-devel openssl-devel libnl3-devel \
-  libyaml-devel libbsd-devel libgusb-devel patchelf python3-devel
+  libyaml-devel libbsd-devel libgusb-devel patchelf python3-devel \
+  qt6-qtbase-devel qt6-qtsvg-devel qt6-qtnetworkauth-devel qt6-qtbase-private-devel
 
 TOP="/tmp/rpmbuild-sheng"
 SRC="/tmp/src-sheng"
@@ -195,7 +196,7 @@ fi
 
 # 4. fastrpc
 echo "=== [4/18] Building fastrpc ==="
-git clone --depth 1 https://github.com/qualcomm/fastrpc.git "$SRC/fastrpc-1.0.2"
+git clone --depth 1 --branch v1.0.2 https://github.com/qualcomm/fastrpc.git "$SRC/fastrpc-1.0.2"
 tar -czf "$TOP/SOURCES/fastrpc-1.0.2.tar.gz" -C "$SRC" --exclude=.git fastrpc-1.0.2
 cp "$PATCHES_DIR/adsprpcd-sensorspd.service" "$TOP/SOURCES/"
 build_spec fastrpc.spec
@@ -203,45 +204,50 @@ rpm -Uvh --force "$TOP"/RPMS/aarch64/fastrpc-*.rpm
 
 # 5. libssc (depends on fastrpc)
 echo "=== [5/18] Building libssc ==="
-git clone --depth 1 -b linux-sheng https://github.com/Editor7075/libssc.git "$SRC/libssc-0.2.1"
-tar -czf "$TOP/SOURCES/libssc-0.2.1.tar.gz" -C "$SRC" --exclude=.git libssc-0.2.1
+git clone https://codeberg.org/DylanVanAssche/libssc.git "$SRC/libssc-0.3.0"
+tar -czf "$TOP/SOURCES/libssc-0.3.0.tar.gz" -C "$SRC" --exclude=.git libssc-0.3.0
+cp "$PATCHES_DIR/wait_for_qmi_service.patch" "$TOP/SOURCES/"
 build_spec libssc.spec
 rpm -Uvh --force "$TOP"/RPMS/aarch64/libssc-*.rpm
+rpm -Uvh --force "$TOP"/RPMS/aarch64/libssc-devel-*.rpm
 
 # 6. iio-sensor-proxy (replaces stock iio-sensor-proxy with libssc backend)
 echo "=== [6/18] Building iio-sensor-proxy ==="
-git clone --depth 1 --branch 3.8 https://gitlab.freedesktop.org/hadess/iio-sensor-proxy.git "$SRC/iio-sensor-proxy-3.8"
-tar -czf "$TOP/SOURCES/iio-sensor-proxy-3.8.tar.gz" -C "$SRC" --exclude=.git iio-sensor-proxy-3.8
+git clone --depth 1 --branch 3.9 https://gitlab.freedesktop.org/hadess/iio-sensor-proxy.git "$SRC/iio-sensor-proxy-3.9"
+tar -czf "$TOP/SOURCES/iio-sensor-proxy-3.9.tar.gz" -C "$SRC" --exclude=.git iio-sensor-proxy-3.9
 build_spec iio-sensor-proxy.spec
 
 # 7. xiaomi-sheng-thp
 echo "=== [7/18] Building xiaomi-sheng-thp ==="
-git clone --depth 1 https://github.com/OrderedSet86/xiaomi-sheng-thp.git "$SRC/xiaomi-sheng-thp-1.0"
-tar -czf "$TOP/SOURCES/xiaomi-sheng-thp-1.0.tar.gz" -C "$SRC" --exclude=.git xiaomi-sheng-thp-1.0
+git clone --depth 1 --branch v0.3.9 https://github.com/ianchb/xiaomi-sheng-thp.git "$SRC/xiaomi-sheng-thp-0.3.9"
+tar -czf "$TOP/SOURCES/xiaomi-sheng-thp-0.3.9.tar.gz" -C "$SRC" --exclude=.git xiaomi-sheng-thp-0.3.9
 build_spec xiaomi-sheng-thp.spec
+rpm -Uvh --force "$TOP"/RPMS/aarch64/xiaomi-sheng-thp-*.rpm
 
 # 8. sheng-devauth
 echo "=== [8/18] Building sheng-devauth ==="
-git clone --depth 1 https://github.com/DotRedstone/sheng-devauth.git "$SRC/sheng-devauth-1.0"
-tar -czf "$TOP/SOURCES/sheng-devauth-1.0.tar.gz" -C "$SRC" --exclude=.git sheng-devauth-1.0
+git clone --depth 1 https://github.com/ianchb/sheng_devauth.git "$SRC/sheng_devauth-1.0"
+tar -czf "$TOP/SOURCES/sheng-devauth-1.0.tar.gz" -C "$SRC" --exclude=.git sheng_devauth-1.0
+cp "$PATCHES_DIR/sheng-devauth.service" "$TOP/SOURCES/"
+cp "$PATCHES_DIR/sheng-devauth.service.d-qtee.conf" "$TOP/SOURCES/"
 build_spec sheng-devauth.spec
 
 # 9. xiaomi-mipps-auth
 echo "=== [9/18] Building xiaomi-mipps-auth ==="
-git clone --depth 1 https://github.com/slhssb/xiaomi-mipps-auth.git "$SRC/xiaomi-mipps-auth-1.0"
-tar -czf "$TOP/SOURCES/xiaomi-mipps-auth-1.0.tar.gz" -C "$SRC" --exclude=.git xiaomi-mipps-auth-1.0
+git clone --depth 1 --branch 0.21 https://github.com/ianchb/xiaomi-mipps-auth.git "$SRC/xiaomi-mipps-auth-0.21"
+tar -czf "$TOP/SOURCES/xiaomi-mipps-auth-0.21.tar.gz" -C "$SRC" --exclude=.git xiaomi-mipps-auth-0.21
 build_spec xiaomi-mipps-auth.spec
 
 # 10. xiaomi-charger-mode
 echo "=== [10/18] Building xiaomi-charger-mode ==="
-git clone --depth 1 https://github.com/slhssb/xiaomi-charger-mode.git "$SRC/xiaomi-charger-mode-1.0"
-tar -czf "$TOP/SOURCES/xiaomi-charger-mode-1.0.tar.gz" -C "$SRC" --exclude=.git xiaomi-charger-mode-1.0
+git clone --depth 1 --branch 0.20 https://github.com/ianchb/xiaomi-charger-mode.git "$SRC/xiaomi-charger-mode-0.20"
+tar -czf "$TOP/SOURCES/xiaomi-charger-mode-0.20.tar.gz" -C "$SRC" --exclude=.git xiaomi-charger-mode-0.20
 build_spec xiaomi-charger-mode.spec
 
 # 11. xiaomi-sheng-keyboard-helper
 echo "=== [11/18] Building xiaomi-sheng-keyboard-helper ==="
-git clone --depth 1 https://github.com/OrderedSet86/xiaomi-sheng-keyboard-helper.git "$SRC/xiaomi-sheng-keyboard-helper-1.0"
-tar -czf "$TOP/SOURCES/xiaomi-sheng-keyboard-helper-1.0.tar.gz" -C "$SRC" --exclude=.git xiaomi-sheng-keyboard-helper-1.0
+git clone --depth 1 --branch v0.2.0 https://github.com/ianchb/xiaomi-sheng-keyboard-helper.git "$SRC/xiaomi-sheng-keyboard-helper-0.2.0"
+tar -czf "$TOP/SOURCES/xiaomi-sheng-keyboard-helper-0.2.0.tar.gz" -C "$SRC" --exclude=.git xiaomi-sheng-keyboard-helper-0.2.0
 build_spec xiaomi-sheng-keyboard-helper.spec
 
 # 12. xiaomi-sheng-keyboard-backlight
@@ -252,28 +258,32 @@ build_spec xiaomi-sheng-keyboard-backlight.spec
 
 # 13. xiaomi-pen-status
 echo "=== [13/18] Building xiaomi-pen-status ==="
-git clone --depth 1 https://github.com/slhssb/xiaomi-pen-status.git "$SRC/xiaomi-pen-status-1.0"
-tar -czf "$TOP/SOURCES/xiaomi-pen-status-1.0.tar.gz" -C "$SRC" --exclude=.git xiaomi-pen-status-1.0
+git clone --depth 1 --branch v0.2.3 https://github.com/ianchb/xiaomi-pen-status.git "$SRC/xiaomi-pen-status-0.2.3"
+tar -czf "$TOP/SOURCES/xiaomi-pen-status-0.2.3.tar.gz" -C "$SRC" --exclude=.git xiaomi-pen-status-0.2.3
 build_spec xiaomi-pen-status.spec
 
 # 14. xiaomi-sheng-fingerprint
 echo "=== [14/18] Building xiaomi-sheng-fingerprint ==="
-git clone --depth 1 https://github.com/ianchb/xiaomi-sheng-fingerprint.git "$SRC/xiaomi-sheng-fingerprint-0.1.4"
+git clone --depth 1 --branch v0.1.4 https://github.com/ianchb/xiaomi-sheng-fingerprint.git "$SRC/xiaomi-sheng-fingerprint-0.1.4"
 tar -czf "$TOP/SOURCES/xiaomi-sheng-fingerprint-0.1.4.tar.gz" -C "$SRC" --exclude=.git xiaomi-sheng-fingerprint-0.1.4
 build_spec xiaomi-sheng-fingerprint.spec
 
 # 15. sheng-sensors
 echo "=== [15/18] Building sheng-sensors ==="
-git clone --depth 1 https://github.com/Editor7075/sheng-sensors.git "$SRC/sheng-sensors-1.0"
-tar -czf "$TOP/SOURCES/sheng-sensors-1.0.tar.gz" -C "$SRC" --exclude=.git sheng-sensors-1.0
+git clone --depth 1 https://github.com/alghiffaryfa19/sheng-sensors-file.git "$SRC/sheng-sensors-file"
+tar -czf "$TOP/SOURCES/sheng-sensors-20240917.tar.gz" -C "$SRC/sheng-sensors-file" --exclude=.git .
 cp "$PATCHES_DIR/99-qcom-CDSP.rules" "$TOP/SOURCES/"
 cp "$PATCHES_DIR/sensors.service" "$TOP/SOURCES/"
 build_spec sheng-sensors.spec
 
 # 16. alsa-xiaomi-sheng
 echo "=== [16/18] Building alsa-xiaomi-sheng ==="
-git clone --depth 1 https://github.com/ianchb/alsa-xiaomi-sheng.git "$SRC/alsa-xiaomi-sheng-1.0"
-tar -czf "$TOP/SOURCES/alsa-xiaomi-sheng-1.0.tar.gz" -C "$SRC" --exclude=.git alsa-xiaomi-sheng-1.0
+git clone --depth 1 --sparse https://github.com/ianchb/debian-sheng.git "$SRC/debian-sheng"
+(
+  cd "$SRC/debian-sheng"
+  git sparse-checkout set alsa-xiaomi-sheng
+)
+tar -czf "$TOP/SOURCES/alsa-xiaomi-sheng-1.0.tar.gz" -C "$SRC/debian-sheng/alsa-xiaomi-sheng" .
 build_spec alsa-xiaomi-sheng.spec
 
 # 17. sheng-audio-fix

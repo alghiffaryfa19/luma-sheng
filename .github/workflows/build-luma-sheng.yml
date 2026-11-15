@@ -22,6 +22,16 @@ on:
         required: true
         default: "0.1.0"
         type: string
+      kernel_repo:
+        description: "SM8550 kernel repository"
+        required: true
+        default: "https://github.com/ianchb/sm8550-mainline"
+        type: string
+      kernel_branch:
+        description: "SM8550 kernel branch or tag (e.g. sheng-7.2.2, sheng-7.3.0)"
+        required: true
+        default: "sheng-7.2.2"
+        type: string
 
 permissions:
   contents: write
@@ -62,9 +72,9 @@ jobs:
             printf '%s  /tmp/sheng-firmware/%s\n' "$sha256" "$relpath" | sha256sum -c --quiet -
           done < devices/xiaomi/sheng/firmware.manifest
 
-      - name: Clone and build SM8550 kernel (linux-sheng + Luma Kconfig fragment)
+      - name: Clone and build SM8550 kernel (ianchb/sm8550-mainline + Luma Kconfig fragment)
         run: |
-          git clone --depth 1 https://github.com/Editor7075/linux-sheng.git /tmp/linux-sheng
+          git clone --depth 1 --branch "${{ inputs.kernel_branch }}" "${{ inputs.kernel_repo }}" /tmp/linux-sheng
           cp config/kernel/sm8550-sheng.config /tmp/linux-sheng/.config
           cd /tmp/linux-sheng
           if [ -x scripts/kconfig/merge_config.sh ]; then

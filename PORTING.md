@@ -60,9 +60,9 @@ Workflow GitHub Actions telah disediakan di [`.github/workflows/build-luma-sheng
 
 ### Opsi 2: Build Lokal di Mesin `aarch64` (Misalnya langsung di Tablet / Server ARM64)
 
-1. **Build Kernel `linux-sheng` dengan Kconfig Fragment Luma**:
+1. **Build Kernel SM8550 Mainline dengan Kconfig Fragment Luma**:
    ```bash
-   git clone --depth 1 https://github.com/Editor7075/linux-sheng.git /tmp/linux-sheng
+   git clone --depth 1 --branch sheng-7.2.2 https://github.com/ianchb/sm8550-mainline.git /tmp/linux-sheng
    cp ./config/kernel/sm8550-sheng.config /tmp/linux-sheng/.config
    cat ./config/kernel/sheng.fragment >> /tmp/linux-sheng/.config
    cd /tmp/linux-sheng
