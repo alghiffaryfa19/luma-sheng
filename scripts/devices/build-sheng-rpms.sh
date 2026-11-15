@@ -61,33 +61,33 @@ printf '%s  %s\n' "$expected_manifest_sha" "$manifest" | sha256sum -c --quiet - 
   exit 1
 }
 
-# If not already running inside a Fedora environment with rpmbuild, re-exec in Podman/Docker
-if [ "$in_container" -eq 0 ] && ! command -v rpmbuild >/dev/null 2>&1; then
+# If not already running inside a Fedora environment with dnf, re-exec in Podman/Docker
+if [ "$in_container" -eq 0 ] && (! command -v dnf >/dev/null 2>&1 || [ ! -f /etc/fedora-release ]); then
   engine=""
   if command -v podman >/dev/null 2>&1; then
     engine=podman
   elif command -v docker >/dev/null 2>&1; then
     engine=docker
   else
-    printf 'build-sheng-rpms: neither rpmbuild nor podman/docker found\n' >&2
+    printf 'build-sheng-rpms: neither dnf/fedora nor podman/docker found\n' >&2
     exit 1
   fi
 
-  mounts=(-v "$repo_root:/work/luma:Z" -v "$output_dir:/work/out:Z")
+  mounts=(-v "$repo_root:/work/luma" -v "$output_dir:/work/out")
   inner_args=(--in-container --output-dir /work/out --kernel-release "$kernel_release")
   if [ -n "$firmware_dir" ]; then
     firmware_dir=$(realpath -e "$firmware_dir")
-    mounts+=(-v "$firmware_dir:/work/firmware:ro,Z")
+    mounts+=(-v "$firmware_dir:/work/firmware:ro")
     inner_args+=(--firmware-dir /work/firmware)
   fi
   if [ -n "$kernel_modules_dir" ]; then
     kernel_modules_dir=$(realpath -e "$kernel_modules_dir")
-    mounts+=(-v "$kernel_modules_dir:/work/kmod:ro,Z")
+    mounts+=(-v "$kernel_modules_dir:/work/kmod:ro")
     inner_args+=(--kernel-modules-dir /work/kmod)
   fi
   if [ -n "$boot_image" ]; then
     boot_image=$(realpath -e "$boot_image")
-    mounts+=(-v "$boot_image:/work/boot.img:ro,Z")
+    mounts+=(-v "$boot_image:/work/boot.img:ro")
     inner_args+=(--boot-image /work/boot.img)
   fi
 
@@ -310,6 +310,7 @@ createrepo_c "$output_dir"
   cd "$output_dir"
   find Packages repodata -type f -exec sha256sum {} + | sort > SHA256SUMS
 )
+chmod -R a+rX "$output_dir" 2>/dev/null || true
 
 echo "=== Built $(find "$output_dir/Packages" -name '*.rpm' | wc -l) RPM packages in $output_dir ==="
 
