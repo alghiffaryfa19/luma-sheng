@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Luma Connect
+Comment=Your Luma account, its devices and your phones
+Exec=luma-connect
+Icon=org.projectluma.Connect
+Terminal=false
+Categories=Settings;
+StartupNotify=true
+X-GNOME-UsesNotifications=true
+# Luma TV Mode: Connect appears on the TV home (docs/developer-platform/tv-mode.md).
+X-Luma-TV=true
+X-Luma-TV-Tile=org.projectluma.Connect-tv
+X-Luma-TV-Presentation=tv

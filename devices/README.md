@@ -1,0 +1,91 @@
+# Devices
+
+One directory per supported device, `devices/<vendor>/<codename>/`, each a
+strict manifest checked by `tools/check-devices.py`. Shared chip-family
+configuration is in `../socs/`. See [docs/devices.md](../docs/devices.md) for
+the layout, support tiers and how to add a device, and
+[docs/kernel.md](../docs/kernel.md) for the one Luma kernel every ARM device
+builds from (SimplyLuma/linux `luma-7.2` plus one branch per SoC family).
+
+| Device | Directory | SoC | Tier |
+|---|---|---|---|
+| Fairphone 6 | [fairphone/fp6](fairphone/fp6) | Qualcomm SM7635 (milos) | supported |
+| Raspberry Pi 5 | [raspberrypi/rpi5](raspberrypi/rpi5) | Broadcom BCM2712 | experimental |
+| Surface Pro 12-inch | [microsoft/sp12in](microsoft/sp12in) | Qualcomm X1P-42-100 (purwa) | experimental |
+
+## Phones: one image plus a device kit
+
+Every phone installs the same two-part download:
+
+1. The generic phone userdata image of an ARM build
+   (`scripts/mobile/build-phone-userdata.sh`): the one ARM OS commit
+   (`luma/1/aarch64/<channel>`), nothing device-specific. A GPT with 4096-byte
+   sectors: `LumaBoot` (FAT32, 480 MiB at 1 MiB, volume ID `032D-57AD`, empty)
+   and `LumaRoot` (ext4, UUID `03797c05-cf87-4eda-adc4-6ce111baf2d3`).
+2. The device kit (`scripts/devices/build-device-kit.py`, from `device.toml`):
+   - the boot image: kernel, device tree and an initramfs with the shared
+     OSTree resolver (`scripts/mobile/common/initramfs`), naming both
+     filesystems (`pmos_root_uuid`, `pmos_boot_uuid`);
+   - when the device has a `[device_repo]`, `…-kit.sparse`: a `LumaBoot`
+     filesystem holding `luma-device-kit/` (`kit.json`, its signature
+     `kit.json.asc`, and `repo/`, the signed rpm-md device repository) as an
+     Android sparse image that writes only `LumaBoot`'s range of userdata;
+   - `FLASH.txt`: `[kit] flash`, the fastboot commands in order.
+
+Hardware updates (the device repository and boot images) reach adopted
+devices only; experimental devices get OS and app updates
+([docs/kernel.md](../docs/kernel.md#update-streams)).
+
+On the first boot `luma-device-layer.service` (luma-update; the image names the
+kit's filesystem in `/etc/luma/device-kit.conf`):
+
+1. checks `kit.json` and `repomd.xml` against the Luma OS Release key
+   (`/etc/pki/ostree/luma-release.gpg`) and `[kit] compatible` against the
+   device tree's `compatible`;
+2. copies the repository to `/var/lib/luma-device-layer/repo` and, with only
+   that repository configured (no network needed, firmware included), runs
+   one transaction: `rpm-ostree override replace --from repo=<id>` for
+   `[device_repo] replace` with `--install` for `[device_repo] install`;
+3. writes `/etc/yum.repos.d/<id>.repo` at `[device_repo] url`
+   (`repo_gpgcheck=1`, `gpgcheck=1`) and restarts once. From then on
+   `rpm-ostree upgrade` keeps the layer and follows the online repository,
+   as on the Raspberry Pi.
+
+A boot whose deployment carries the layer writes
+`/var/lib/luma-device-layer/layered` and the unit no longer starts. A failure
+never restarts the phone; after two staged attempts that did not boot (greenboot
+rollback, power lost before finalisation) it stops and logs why
+(`journalctl -u luma-device-layer`, `luma-device-layer status`).
+`luma-device-layer apply --retry` starts over.
+
+## Boot image updates
+
+A phone's kernel boots from its A/B boot partition, outside the OS commit, and
+its modules come from the device repository. A device with `[boot_update]`
+ships the boot image of the same kernel build in that package
+(`[boot_update] package`, under `/usr/lib/luma/device-boot/<vendor>-<codename>/`
+with `device-boot.json`, written by `scripts/devices/device-boot-manifest.py`),
+so new modules and the kernel that loads them arrive in one deployment.
+
+On every boot `luma-device-boot.service` (luma-update) compares the image with
+the running slot's boot partition. When they differ it checks the image's
+digest, requires the running slot to be marked successful, requires every A/B
+pair it does not write to be identical on both slots (`qbootctl` switches the
+whole chain), writes the image to the inactive slot, reads it back, sets that
+slot active and restarts once, before the display manager starts. It opens for
+writing only the partitions `[boot_update] partitions` names, of the kinds
+boot, dtbo, init_boot and vendor_boot, and never opens modemst1, modemst2, fsg,
+fsc or persist. `luma-device-boot-confirm.service` marks the slot successful
+once the declared kernel runs (release and `/sys/kernel/notes` digest), and
+marks the running slot on any boot with no attempt pending. A device's own
+unit that marks slots must skip while `/var/lib/luma-device-boot/pending.json`
+exists, so a kernel that is not the declared one never marks its slot. A slot
+that does not boot is left by the bootloader's A/B fallback; the next boot
+records its image as failed and never writes it again
+(`luma-device-boot status`, `luma-device-boot retry`). `luma.device_boot=0` on
+the kernel command line turns the service off for `fastboot boot` test kernels.
+
+| Device | `[device_repo]` | Kit |
+|---|---|---|
+| Fairphone 6 | `luma-fairphone-fp6`: modules, firmware, platform, IMS, eSIM, modem stack | boot image + `…-kit.sparse` |
+| Pixel 9 (`google,tokay`) | none yet: modules and firmware are in the boot image | boot image only |

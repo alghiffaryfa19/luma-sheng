@@ -1,0 +1,38 @@
+[Unit]
+Description=Project Luma per-user Android session
+Documentation=https://project-luma.local/android
+PartOf=graphical-session.target
+After=graphical-session-pre.target
+# Android is an optional per-user runtime. Never start it for GDM's greeter
+# (a dynamic, non-system UID whose session class is "greeter") or for
+# system users; systemd logs the unmet condition as the reason it skipped.
+ConditionUser=!@system
+ConditionEnvironment=XDG_SESSION_CLASS=user
+ConditionPathExists=/var/lib/waydroid/waydroid.cfg
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+# Hardware that may not run Android skips the session instead of failing it.
+ExecCondition=/usr/bin/luma-android gate
+# Launcher reconciliation publishes rounded application icons here.
+ExecStartPre=/usr/bin/mkdir -p %h/.local/share/luma/icons
+ExecStart=/usr/bin/luma-android-session
+ExecStop=/usr/bin/waydroid session stop
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=45
+# This process serves Binder to system_server and admits it by the kernel's
+# sender UID. A user manager runs any mount sandbox (PrivateTmp=,
+# ProtectSystem=, ProtectHome=, ReadWritePaths=) in a user namespace that maps
+# only this user, where every Android UID reads as the overflow UID: each
+# notification was refused and the refusal took system_server down. Keep to
+# hardening that needs no namespace.
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=graphical-session.target

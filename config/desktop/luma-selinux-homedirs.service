@@ -1,0 +1,16 @@
+[Unit]
+Description=Keep the SELinux home-directory contexts for /var/home
+ConditionSecurity=selinux
+DefaultDependencies=no
+# After tmpfiles, which labels /var/home from the contexts it finds; before
+# systemd-homed, which watches /var/home as soon as it starts.
+After=local-fs.target systemd-tmpfiles-setup.service
+Before=systemd-homed.service accounts-daemon.service systemd-user-sessions.service gdm.service shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/luma-selinux-homedirs
+
+[Install]
+WantedBy=multi-user.target

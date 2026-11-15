@@ -1,0 +1,154 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+.luma-converged-home, .luma-converged-status {
+  font-family: Figtree;
+  color: white;
+}
+.luma-converged-status { padding: 0 24px; spacing: 12px; }
+.luma-converged-status .panel-button { background: transparent; border: 0; box-shadow: none; padding: 0; min-height: 44px; }
+.luma-converged-status .panel-button.luma-shelf-material {
+  background-color: transparent; color: inherit; border: 0; box-shadow: none;
+  padding: 0; border-radius: 0; min-height: 44px;
+}
+.luma-converged-status .system-status-icon { icon-size: 18px; padding: 0; }
+.luma-converged-status .panel-button > .panel-status-indicators-box { spacing: 6px; }
+.system-status-icon.luma-camera-privacy-indicator { icon-size: 16px; }
+.luma-converged-status .system-status-icon.luma-camera-privacy-indicator { icon-size: 16px; }
+.luma-converged-clock { padding: 0; min-width: 44px; min-height: 44px; font-size: 1.1em; font-weight: 600; border-radius: 12px; }
+/* Below 360 logical px (large display scales) the row must still clear the island. */
+.luma-converged-status.narrow { spacing: 6px; }
+.luma-converged-status.narrow .system-status-icon { icon-size: 16px; }
+.luma-converged-status.narrow .panel-button > .panel-status-indicators-box { spacing: 3px; }
+.luma-converged-status.narrow .luma-converged-clock { font-size: 1em; }
+.luma-converged-app { border-radius: 16px; padding: 4px; }
+.luma-converged-app:hover, .luma-converged-app:focus { background: rgba(255,255,255,0.14); }
+.luma-converged-app.editing { background: rgba(255,255,255,0.08); }
+.luma-converged-app.selected, .luma-converged-app.dragging { box-shadow: inset 0 0 0 2px #99c1f1; }
+.luma-home-drop-target { border: 2px solid #99c1f1; border-radius: 16px; background: rgba(153,193,241,0.16); }
+.luma-home-edit-done { min-width: 44px; min-height: 36px; padding: 0 10px; border-radius: 12px; background: rgba(127,127,127,0.24); font-weight: 600; }
+.luma-converged-widget.selected { border-color: #99c1f1; }
+.luma-home-resize-handle { padding: 0; border-radius: 22px; color: white; background: rgba(30,25,43,0.92); border: 2px solid #99c1f1; }
+.luma-home-resize-handle:hover, .luma-home-resize-handle:focus { background: #202638; border-color: white; }
+.luma-converged-home.high-contrast .luma-home-resize-handle { background: black; color: white; border-color: white; }
+.luma-converged-app-content { spacing: 8px; }
+.luma-converged-app-label { font-size: 0.9em; font-weight: 400; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.luma-converged-home.opaque .luma-converged-dock { background-color: #1e192b; }
+.luma-converged-home.high-contrast { background-color: #000000; }
+.luma-converged-home.high-contrast .luma-converged-dock { background-color: #111111; border-color: white; }
+.luma-converged-dock { background-color: #1e192b; }
+.luma-converged-home.high-contrast { background-color: #000000; }
+.luma-converged-home.high-contrast .luma-converged-widget,
+.luma-converged-home.high-contrast .luma-converged-widget.weather,
+.luma-converged-home.high-contrast .luma-converged-dock { background-color: #111111; border-color: white; }
+.luma-converged-widget:hover, .luma-converged-widget:focus { border-color: rgba(255,255,255,0.5); }
+.luma-converged-dock,
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.luma-mobile-options,
+StWidget.luma-notification-lip.luma-mobile-notifications .luma-lip-surface {
+  background-color: rgba(30,25,43,0.78);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 24px;
+}
+.luma-converged-dock-app { padding: 0; border-radius: 16px; }
+.luma-converged-dock-app:hover, .luma-converged-dock-app:focus { background: rgba(255,255,255,0.14); }
+.luma-converged-dock-search { background: rgba(255,255,255,0.12); border-radius: 16px; padding: 0; border: 0; }
+.luma-converged-dock-search:hover, .luma-converged-dock-search:focus { background: rgba(255,255,255,0.24); }
+.luma-converged-home-control { background: transparent; }
+.luma-converged-home-pill { width: 0; height: 0; background: transparent; }
+.luma-converged-page { width: 44px; height: 44px; }
+.luma-converged-page-dot { width: 7px; height: 7px; border-radius: 4px; background: rgba(255,255,255,0.35); }
+.luma-converged-page.selected .luma-converged-page-dot { background: white; }
+.luma-tablet-control { min-width: 44px; min-height: 44px; border-radius: 12px; padding: 0; }
+.luma-tablet-control:focus { box-shadow: inset 0 0 0 2px #99c1f1; }
+.luma-tablet-seam { background: transparent; padding: 0; }
+.luma-tablet-seam-grip { width: 4px; height: 40px; border-radius: 2px; background: rgba(255,255,255,0.65); }
+.luma-tablet-seam:hover .luma-tablet-seam-grip { background: white; }
+.luma-tablet-drop-surface { background: rgba(0,0,0,0.15); }
+.luma-tablet-drop-lane { background: rgba(66,143,230,0.28); border: 2px solid #99c1f1; border-radius: 20px; color: white; }
+.luma-tablet-task-panel { background: rgba(30,32,38,0.98); border-radius: 24px; color: white; padding: 16px; spacing: 16px; border: 1px solid rgba(255,255,255,0.2); }
+.luma-tablet-task-header { spacing: 12px; font-weight: 600; }
+.luma-tablet-app-search { min-height: 44px; border-radius: 12px; background: #383b43; padding: 0 12px; color: white; }
+
+
+.luma-tablet-task-backdrop { background: rgba(0,0,0,0.35); }
+
+/* Compact geometry keeps widget copy inside its two-row span. A dense grid
+   fixes the text; a roomy phone's text follows its rows (homeLayout's
+   widgetFontSize). */
+.compact-home .luma-home-widget-content { padding: 8px; spacing: 2px; }
+.compact-home .luma-converged-widget { border-radius: 18px; }
+.dense-home .luma-converged-widget-heading { font-size: 10px; }
+.dense-home .luma-converged-widget.weather .luma-converged-widget-title { font-size: 28px; }
+.dense-home .luma-converged-widget.calendar .luma-converged-widget-title { font-size: 24px; }
+.dense-home .luma-converged-widget-caption { font-size: 10px; }
+/* A roomy phone scales only the values with its rows. Heading and details
+   keep the home_widget tokens (LumaUI caption 11.5, small 12): scaled, they
+   fell to 10-11 px, below the type scale and below Home's app labels.
+   tests/gnome-shell/presentation/density.js checks these against the tokens. */
+.roomy-home .luma-converged-widget-heading { font-size: 11.5px; }
+.roomy-home .luma-converged-widget-caption { font-size: 12px; }
+.compact-home .luma-converged-dock { border-radius: 18px; }
+.compact-home .luma-converged-page { height: 16px; }
+
+/* Touch footer retains full controls and scrolls with the native page. */
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.lumaui-touch-options .luma-quick-footer { min-height: 44px; padding: 2px 0; spacing: 8px; }
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.lumaui-touch-options .luma-quick-actions { spacing: 4px; }
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.lumaui-touch-options .luma-quick-action { width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 0; color: rgba(238,240,244,.8); }
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.lumaui-touch-options .luma-quick-action StIcon { icon-size: 22px; }
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.lumaui-touch-options .lumaui-footer-mode { min-height: 44px; }
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.lumaui-touch-options .lumaui-footer-mode .quick-toggle-title { font-size: 14px; }
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.lumaui-touch-options .lumaui-footer-mode .quick-toggle { min-height: 44px; }
+
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.lumaui-touch-options .luma-options-system { min-height: 44px; height: auto; padding: 4px 0 0; margin: 0; }
+
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.lumaui-compact-options .luma-options-main { spacing: 8px; }
+
+/* Mobile uses the Dock's single surface, without a second card/material frame. */
+StWidget.luma-notification-lip.luma-mobile-notifications .luma-lip-surface {
+  box-shadow: none;
+  border-top-width: 0;
+  border-radius: 0 0 24px 24px;
+}
+StWidget.luma-notification-lip.luma-mobile-notifications.idle .luma-lip-surface { border-radius: 0 0 5px 5px; }
+StWidget.luma-notification-lip.luma-mobile-notifications.pill .luma-lip-surface { border-radius: 0 0 11px 11px; }
+StWidget.luma-notification-lip.luma-mobile-notifications.tray .luma-lip-surface { border-width: 0; }
+StWidget.luma-notification-lip.luma-mobile-notifications .notification-banner.luma-lip-card,
+StWidget.luma-notification-lip.luma-mobile-notifications .luma-lip-list .notification-banner.luma-lip-card {
+  background-color: transparent; background-gradient-direction: none;
+  border: 0; box-shadow: none;
+}
+StWidget.luma-notification-lip.luma-mobile-notifications.opaque .luma-lip-surface { background-color: #1e192b; }
+StWidget.luma-notification-lip.luma-mobile-notifications.high-contrast .luma-lip-surface {
+  background-color: #111111; border-color: white;
+}
+
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.luma-mobile-options.opaque { background-color: #1e192b; }
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.luma-mobile-options.high-contrast { background-color: #111111; border-color: white; }
+
+/* Full pages use the dock palette's opaque treatment, so underlying clocks
+ * and application text cannot compete with their own headings and controls. */
+StWidget.luma-notification-lip.luma-mobile-notifications.tray .luma-lip-surface,
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.luma-mobile-options {
+  background-color: #1e192b;
+}
+
+StWidget.luma-notification-lip.luma-mobile-notifications.tray.high-contrast .luma-lip-surface,
+.popup-menu-content.quick-settings.luma-studio-options.lumaui-shell-options.luma-mobile-options.high-contrast {
+  background-color: #111111;
+}
+
+/* Incoming call takeover (incomingCall.js): above the lock screen while ringing. */
+.luma-call-takeover { background-color: rgba(18,14,26,0.96); }
+.luma-call-takeover-column { padding: 96px 32px 72px 32px; spacing: 10px; }
+.luma-call-takeover-status { color: rgba(255,255,255,0.64); font-size: 15px; font-weight: 600; }
+.luma-call-takeover-caller { color: #ffffff; font-size: 34px; font-weight: 600; text-align: center; }
+.luma-call-takeover-detail { color: rgba(255,255,255,0.64); font-size: 15px; }
+.luma-call-takeover-buttons { spacing: 88px; }
+.luma-call-takeover-action { spacing: 10px; }
+.luma-call-takeover-button { width: 76px; height: 76px; border-radius: 38px; color: #ffffff; }
+.luma-call-takeover-button StIcon { icon-size: 30px; }
+.luma-call-takeover-answer { background-color: #47a179; }
+.luma-call-takeover-answer:hover, .luma-call-takeover-answer:active { background-color: #3f8f6c; }
+.luma-call-takeover-decline { background-color: #b4534f; }
+.luma-call-takeover-decline:hover, .luma-call-takeover-decline:active { background-color: #a74b47; }
+.luma-call-takeover-neutral { background-color: rgba(255,255,255,0.14); }
+.luma-call-takeover-neutral:hover, .luma-call-takeover-neutral:active { background-color: rgba(255,255,255,0.22); }
+.luma-call-takeover-label { color: rgba(255,255,255,0.86); font-size: 14px; }

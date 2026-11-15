@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<component type="desktop-application">
+  <id>org.projectluma.Ari</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Apache-2.0</project_license>
+  <name>Ari</name>
+  <summary>Ask Luma's assistant, or tell her what to change</summary>
+  <description>
+    <p>Ari answers questions, changes settings and carries out supported application tasks. Completed actions appear in Activity; Undo is available when the action supports it.</p>
+    <p>Choose a local model, sign in with an eligible ChatGPT plan, or connect OpenRouter. Connected models receive the conversation and tool results. Local history, account settings and action permissions stay on this computer.</p>
+  </description>
+  <launchable type="desktop-id">org.projectluma.Ari.desktop</launchable>
+  <developer id="org.projectluma"><name>Project Luma</name></developer>
+  <url type="homepage">https://projectluma.org/apps/ari</url>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.2.0" date="2026-10-30">
+      <description>
+        <p>Added ChatGPT sign-in, model controls and application permissions. Fixed conversation scrolling and action status.</p>
+      </description>
+    </release>
+    <release version="0.1.0" date="2026-09-13"/>
+  </releases>
+</component>

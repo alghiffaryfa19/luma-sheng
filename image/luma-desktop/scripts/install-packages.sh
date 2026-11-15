@@ -1,0 +1,214 @@
+#!/usr/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+#
+# Image build step 1: packages. Runs inside `podman build` with the source
+# checkout at /run/luma/source and the verified Luma rpm-md repository at
+# /run/luma/packages. This is the container form of what
+# scripts/vm/provision-desktop-image.sh does with rpm-ostree on a live guest:
+#
+#   * every pinned Luma NEVRA (config/desktop/packages.txt) is installed in one
+#     dependency-resolved transaction, replacing the Fedora base packages it
+#     supersedes (Shell, Mutter, Control Center, GTK 3/4, libadwaita,
+#     libhandy, Files, Calculator, Terminal, the Plymouth family);
+#   * Fedora additions and the shared/desktop application roles are resolved
+#     in the same transaction;
+#   * packages Luma does not ship are removed with rpm's dependency check;
+#   * afterwards every pin must be installed byte-for-byte.
+
+set -euo pipefail
+
+src=/run/luma/source
+packages=/run/luma/packages
+
+strip_list() {
+  sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$1"
+}
+
+fail() {
+  printf 'error: %s\n' "$*" >&2
+  exit 1
+}
+
+[ -f "$packages/repodata/repomd.xml" ] || fail 'the Luma package repository has no metadata'
+
+architecture=${LUMA_TARGET_ARCHITECTURE:-$(uname -m)}
+profile=${LUMA_OS_PROFILE:-full}
+hardware_target=${LUMA_OS_HARDWARE_TARGET:-}
+target_args=(--arch "$architecture" --profile "$profile" --hardware-target "$hardware_target")
+[ "$(rpm --eval '%{_arch}')" = "$architecture" ] || fail 'package transaction architecture differs from target'
+python3 "$src/scripts/os/lib/desktop_target.py" "${target_args[@]}" plan >/tmp/luma-desktop-target.json || fail 'invalid desktop target'
+mapfile -t pins < <(python3 "$src/scripts/os/lib/desktop_target.py" "${target_args[@]}" pins)
+[ "${#pins[@]}" -gt 0 ] || fail 'the Luma pin list is empty'
+# Always include exact Fedora pins in the transaction, even when already
+# installed, so dependency resolution cannot silently upgrade them.
+mapfile -t -O "${#pins[@]}" pins < <(python3 "$src/scripts/os/lib/desktop_target.py" "${target_args[@]}" fedora | grep -E '\.(x86_64|aarch64|noarch)$' || true)
+for nevra in "${pins[@]}"; do
+  [ -f "$packages/Packages/$nevra.rpm" ] || fail "pinned package is not in the build repository: $nevra"
+done
+mapfile -t pin_names < <(
+  for nevra in "${pins[@]}"; do
+    rpm -qp --nosignature --qf '%{NAME}\n' "$packages/Packages/$nevra.rpm"
+  done | sort -u
+)
+
+mapfile -t removed < <(strip_list "$src/config/os/removed-packages.txt")
+mapfile -t -O "${#removed[@]}" removed < <(strip_list "$src/config/shared/excluded-background-packages.txt")
+
+# The build-only repository. It is never shipped: the image carries no
+# file:// repository that could break dnf or rpm-ostree later. Luma packages
+# are not RPM-signed; their integrity is the header digest check at the end of
+# this script against the verified pool manifest, and then the GPG-signed
+# OSTree commit that carries them.
+cat >/etc/yum.repos.d/luma-image-build.repo <<'EOF'
+[luma-image-build]
+name=Luma packages for this image build
+baseurl=file:///run/luma/packages
+enabled=1
+gpgcheck=0
+repo_gpgcheck=0
+priority=1
+skip_if_unavailable=False
+EOF
+
+contains() {
+  local needle=$1 item
+  shift
+  for item in "$@"; do
+    [ "$item" = "$needle" ] && return 0
+  done
+  return 1
+}
+
+# Fedora additions and application roles. A role already supplied by a pinned
+# Luma package, or one Luma removes, is not requested. Roles already present
+# in the base stay as they are.
+requests=()
+while IFS= read -r name; do
+  if contains "$name" "${pin_names[@]}" || contains "$name" "${pins[@]}"; then
+    continue
+  fi
+  if contains "$name" "${removed[@]}"; then
+    printf 'note: role %s is removed from the Luma image (config/os/removed-packages.txt)\n' "$name"
+    continue
+  fi
+  if rpm -q "$name" >/dev/null 2>&1; then
+    continue
+  fi
+  contains "$name" "${requests[@]}" || requests+=("$name")
+done < <(
+  python3 "$src/scripts/os/lib/desktop_target.py" "${target_args[@]}" fedora
+  python3 "$src/scripts/os/lib/desktop_target.py" "${target_args[@]}" roles
+)
+
+# /opt is a symlink to /var/opt in Fedora's bootable images, and nothing a
+# package unpacks below /var is part of the delivered tree. Let packages unpack
+# there, then relocate each /opt entry into /usr/lib/opt with a tmpfiles link,
+# exactly as rpm-ostree does for layered packages (rpm-ostree-autovar.conf).
+if [ -L /opt ]; then
+  install -d -m 0755 /var/opt
+fi
+
+printf 'Installing %d pinned packages and %d additional Fedora packages\n' \
+  "${#pins[@]}" "${#requests[@]}"
+dnf5 -y --setopt=keepcache=False install "${pins[@]}" "${requests[@]}"
+
+if [ -L /opt ] && [ -d /var/opt ]; then
+  : >/usr/lib/tmpfiles.d/luma-opt.conf.new
+  for entry in /var/opt/* /var/opt/.[!.]*; do
+    [ -e "$entry" ] || [ -L "$entry" ] || continue
+    name=$(basename "$entry")
+    [ ! -e "/usr/lib/opt/$name" ] || fail "/usr/lib/opt/$name already exists"
+    install -d -m 0755 /usr/lib/opt
+    mv "$entry" "/usr/lib/opt/$name"
+    printf 'L /opt/%s - - - - ../../usr/lib/opt/%s\n' "$name" "$name" >>/usr/lib/tmpfiles.d/luma-opt.conf.new
+    printf 'Relocated /opt/%s to /usr/lib/opt/%s\n' "$name" "$name"
+  done
+  if [ -s /usr/lib/tmpfiles.d/luma-opt.conf.new ]; then
+    mv /usr/lib/tmpfiles.d/luma-opt.conf.new /usr/lib/tmpfiles.d/luma-opt.conf
+  else
+    rm -f /usr/lib/tmpfiles.d/luma-opt.conf.new
+  fi
+  rmdir /var/opt
+fi
+
+# Removals: rpm -e refuses when anything still requires the package, which is
+# the rpm-ostree `override remove` contract the VM composition relied on.
+installed_removals=()
+for name in "${removed[@]}"; do
+  if rpm -q "$name" >/dev/null 2>&1; then
+    installed_removals+=("$name")
+  fi
+done
+if [ "${#installed_removals[@]}" -gt 0 ]; then
+  printf 'Removing: %s\n' "${installed_removals[*]}"
+  rpm -e "${installed_removals[@]}"
+fi
+
+# A hardware target with its own kernel (desktop-targets.json hardware_targets
+# kernel): the pinned kernel is installed above beside the base image's
+# Fedora kernel, which is removed here. OSTree boots the one kernel in
+# /usr/lib/modules. --noscripts: kernel-install has nothing to remove in an
+# image; rpm's dependency check still runs, and the target kernel provides
+# kernel-core and kmod() for everything that requires them.
+kernel_package=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["kernel_package"])' /tmp/luma-desktop-target.json)
+if [ -n "$kernel_package" ]; then
+  rpm -q "$kernel_package" >/dev/null || fail "hardware target kernel $kernel_package is not installed"
+  target_kver=$(rpm -ql "$kernel_package" | sed -n 's|^/usr/lib/modules/\([^/]*\)/vmlinuz$|\1|p')
+  [ -n "$target_kver" ] || fail "$kernel_package ships no /usr/lib/modules/<release>/vmlinuz"
+  fedora_kernel=()
+  for name in kernel kernel-core kernel-modules kernel-modules-core kernel-modules-extra kernel-modules-internal; do
+    rpm -q "$name" >/dev/null 2>&1 && fedora_kernel+=("$name")
+  done
+  if [ "${#fedora_kernel[@]}" -gt 0 ]; then
+    printf 'Replacing the base kernel (%s) with %s\n' "${fedora_kernel[*]}" "$kernel_package"
+    rpm -e --noscripts "${fedora_kernel[@]}"
+  fi
+  for dir in /usr/lib/modules/*; do
+    [ "$(basename "$dir")" = "$target_kver" ] || rm -rf "$dir"
+  done
+  [ -f "/usr/lib/modules/$target_kver/vmlinuz" ] || fail "kernel $target_kver is missing after the swap"
+fi
+
+# Refuse excluded capability providers even if a base or dependency brought
+# one in. Never hide an unsupported capability behind an installed engine.
+python3 - "$src" "$architecture" "$profile" <<'PYCAPABILITIES'
+import subprocess, sys
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]) / 'scripts/os/lib'))
+from desktop_target import profile, excluded
+selection = profile(Path(sys.argv[1]), sys.argv[2], sys.argv[3])
+installed = subprocess.check_output(['rpm', '-qa', '--qf', '%{NAME}\n'], text=True).splitlines()
+unexpected = [name for name in installed if excluded(name, selection)]
+if unexpected:
+    raise SystemExit('Unsupported profile capability providers installed: ' + ', '.join(unexpected))
+PYCAPABILITIES
+
+# Verification: each pin is installed exactly, from the verified file.
+status=0
+for nevra in "${pins[@]}"; do
+  expected=$(rpm -qp --nosignature --qf '%{SHA256HEADER}' "$packages/Packages/$nevra.rpm")
+  name=$(rpm -qp --nosignature --qf '%{NAME}' "$packages/Packages/$nevra.rpm")
+  actual=$(rpm -q --qf '%{NEVRA} %{SHA256HEADER}\n' "$name" 2>/dev/null || true)
+  if [ "$actual" != "$nevra $expected" ]; then
+    printf 'error: %s is not installed exactly (found: %s)\n' "$nevra" "${actual:-nothing}" >&2
+    status=1
+  fi
+done
+for name in "${removed[@]}"; do
+  if rpm -q "$name" >/dev/null 2>&1; then
+    printf 'error: %s must not be installed\n' "$name" >&2
+    status=1
+  fi
+done
+for name in "${requests[@]}"; do
+  rpm -q "$name" >/dev/null 2>&1 || {
+    printf 'error: requested Fedora package %s is not installed\n' "$name" >&2
+    status=1
+  }
+done
+[ "$status" -eq 0 ] || fail 'package verification failed'
+
+rm -f /etc/yum.repos.d/luma-image-build.repo
+dnf5 clean all >/dev/null
+rm -rf /var/cache/libdnf5 /var/lib/dnf /var/log/dnf5.log* /var/log/hawkey.log
+printf 'Package step complete: %d pins verified\n' "${#pins[@]}"

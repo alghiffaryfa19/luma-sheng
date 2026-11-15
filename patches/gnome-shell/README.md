@@ -1,0 +1,694 @@
+# GNOME Shell downstream
+
+Project Luma builds the Fedora 44 `gnome-shell-50.3-1.fc44` source package
+with isolated, ordered downstream patches. GNOME Shell remains GPL-2.0-or-later and
+retains its upstream name, source history, and About/diagnostic identity.
+
+`0001-luma-panel-layout.patch` changes the normal user session only:
+
+- the date menu is the first actor in the left panel box;
+- the Activities actor is absent from the panel while the Super key and native
+  overview remain unchanged;
+- the label renders locale-aware time first, followed by the optional weekday
+  and date, and continues to honor 12/24-hour, seconds, weekday, and date keys.
+- the time and date are separate semantic labels with an explicit 9px spacer;
+- the normal light-session panel uses Luma's 34px translucent material,
+  hairline, typography, tray pill states, and compositor background blur;
+- unread notifications use a numeric gold badge instead of a symbolic dot.
+
+Shell's compositor blur supports radius and brightness but not CSS
+`saturate(1.4)`, so saturation is intentionally omitted. The panel is
+rectangular and therefore does not expose the rounded-clip limitation that
+applies to the dock.
+
+`0002-prairie-login-lock.patch` implements the Prairie Daybreak GDM and unlock
+surface in GNOME Shell source. It shares native clock and power-button
+components, reshapes the existing authentication prompt without replacing its
+GDM verifier, uses a compiled vector resource for the exact stacked Daybreak
+gradients, and leaves the centered authentication stack directly on that ground
+without a surrounding card, border, or shadow. GDM and unlock session modes
+deliberately have no panel actors. Single-user greeters proceed directly to the
+named user's focused password prompt; Enter and the inline submit button retain
+the same authentication action, password reveal remains native, and failures
+remain inline without field motion.
+
+`0003-luma-desktop-first-session.patch` separates overview availability from
+the initial session presentation. A normal login completes Shell's required
+startup preparation at final desktop geometry and opacity, without invoking
+either the overview animation or the scale-and-fade path reserved for modes
+that have no overview. The Super key, three-finger gesture, overview, app grid,
+search, and workspace model remain fully available after login.
+
+`0004-prairie-login-spinner-row.patch` separates authentication progress from
+the submit glyph. `0006-prairie-auth-entry-and-progress.patch` completes that
+work by reserving an inline progress slot immediately to the right of Submit,
+so authentication never moves or replaces the control. The same patch makes
+the Prairie unlock surface credential-first at construction time and disables
+the obsolete curtain swipe state; it does not synthesize an input gesture.
+
+The earlier spinner patch keeps the submit arrow in its native
+button and gives authentication progress a dedicated, height-reserved row below
+the credential field. It reuses GNOME Shell's existing spinner and verifier
+state, so progress no longer overlays the button and the prompt does not jump
+when verification starts or stops.
+
+`0005-prairie-application-shortcuts.patch` connects Filer's registered-
+application drags to two native Shell destinations. The existing Dash drop
+contract continues to own favorites ordering and persistence, so a dock drop
+uses the same application ID and `AppFavorites` path as an app-grid drop. A
+desktop drop creates one user-owned symbolic link in the XDG Desktop directory
+to the registered desktop entry, then renders those links as native Shell
+actors below windows. The bridge accepts calls only from the
+`org.gnome.Nautilus` session-bus owner, validates every application through
+`Shell.AppSystem`, relies on Mutter's standard
+`application/x-rootwindow-drop` Wayland contract, and never edits packaged
+desktop files or populates the desktop at login.
+The Shell side retains a validated Dash destination while the pointer crosses
+that Dash's own temporary insertion placeholder, but only inside the same
+actor subtree; leaving the dock clears it, preserving normal cancellation.
+External application drags also enter and leave GNOME's native item-drag
+lifecycle. This ensures every Dash instance, including the always-visible
+dock, removes its insertion actor after either a drop or cancellation instead
+of retaining an inert blank slot.
+While that actor expands, Shell retains the open gap until the pointer crosses
+its visual boundary. External application drags select the nearest insertion
+boundary rather than GNOME's left-biased floor bucket, and clamp the result to
+the real first and last dock gaps. The calculation uses the icon box's origin,
+matching Xdnd's target actor.
+For external drags, leaving the dock is determined from the pointer's stage
+coordinates against the live icon-box bounds rather than the identity of the
+actor under it. The centered dock can therefore move around a stationary
+pointer while opening a slot without falsely treating that layout movement as
+a pointer exit and collapsing the slot.
+The stored drop destination uses the same live bounds fallback when Clutter
+repicks a stationary pointer onto the dock background. Visual insertion and
+the target later committed by `acceptDrop()` therefore cannot diverge.
+
+`0007-luma-handheld-posture.patch` adds a runtime presentation posture without
+forking Shell. Only a device image that declares `LUMA_DEVICE_CLASS=handheld`
+and is currently using a portrait primary monitor receives a 64px top safe
+area, 60px panel touch targets, 24px status glyphs, a center exclusion band for
+the camera cutout, and zero-delay high-contrast OSK pressed feedback. Rotating
+to a landscape primary display or docking to a landscape external display
+returns the same running Shell to the existing 34px desktop panel geometry.
+
+`0009-luma-notification-system.patch` moves the native notification presenter
+from the superseded clock-relative center rule to a focused-monitor,
+work-area-aware bottom-right surface with a 14px inset, seven-second ordinary
+timeout, horizontal edge motion, Figtree, and Luma light/dark/high-contrast
+materials. The existing Shell source and message list remain the one desktop
+record/action/close-reason authority. The date-menu indicator is the compact
+waiting beacon and remains visible during Do Not Disturb because DND suppresses
+interruption, not history. This intentionally supersedes the
+`Clutter.ActorAlign.CENTER` line in `0001`; no runtime override competes.
+
+`0010-luma-notification-lifecycle-stack.patch` completes the desktop delivery
+contract in the same native presenter. It retains up to twenty queued records,
+renders no more than three simultaneous interactive banners, pauses each
+secondary timeout for hover or keyboard focus, and records the shared
+Queued/Arriving/Waiting/Seen/Acted/Dismissed/Expired/Replaced lifecycle. A
+banner becoming visible is deliberately not acknowledgement: ordinary
+non-transient cards return to Waiting after seven seconds, while mapping the
+native message list is the point that marks them Seen. Replacement IDs,
+actions, close reasons, DND, fullscreen policy, and source ownership remain
+GNOME Shell's existing paths.
+
+`0011-luma-search-window-view.patch` lifts Search out of Overview into a native
+modal Beam that consumes the shared `org.projectluma.Search1` service. Bare
+Super toggles Search using Mutter's solo-overlay-key signal, Escape and the
+scrim dismiss it, and the upstream results presentation retains keyboard and
+assistive-technology behavior. The same patch presents Overview as **Window
+View**: window previews, workspaces, gestures, and compositor integration stay
+native, while the Search field, Dash, and application grid are not presented
+in that surface. The hot corner and explicit `<Super>w` binding open Window View.
+The normal Applications binding opens the retained upstream app grid as a
+separately named **Applications** surface. Window View gestures stop at the
+window-picker state, so the app grid is not a hidden second page of Window View.
+
+`0012-luma-search-beam-native-providers.patch` is the desktop correctness and
+presentation follow-up. It keeps the standalone Beam and Window View split, but
+routes the desktop presenter through GNOME Shell's existing
+`SearchResultsView`, application catalog, SearchProvider2 discovery,
+cancellation, metadata, and activation paths. This restores the exact mature
+Activity View search behavior while the shared broker remains the handheld
+client boundary. The patch also makes the modal container transparent, renders
+the field and result list as separate 620px islands, and adds the compact
+Figtree result-row, semantic kind, focus, hover, selected, empty, and no-result
+states from the approved Beam study. Desktop/mobile broker parity remains an
+explicit convergence gate rather than a completed claim.
+
+`0013-luma-search-beam-layout-polish.patch` fixes the physical desktop review
+findings without forking the search engine. It establishes the Beam field's
+stable work-area anchor before its first allocation, keeps that anchor fixed
+while provider content changes height, sizes the compact viewport in whole
+result-row increments without provider separators or a fade gutter, and forces every
+compact provider result—including application-owned result objects—through
+the same bounded row renderer while retaining the provider-owned activation
+delegate, prevents compact search actors from expanding to the monitor height,
+and disables the generic dialog offscreen texture that
+clipped island shadows. Search runs in the shell's Overview action mode so a
+second Super press closes it, while the visible `esc` affordance is also an
+accessible close button. Activity View keeps its upstream grid presentation.
+
+`0000-luma-fedora-spec.patch` gives the package a Luma release and registers
+the source patches. The build script verifies the archived Fedora source RPM
+before applying them.
+
+`0050-luma-status-island-material-owner.patch` corrects the separate Shelf
+status island at its real actor boundary. The Quick Settings/status actor is
+the `luma-shelf-material` itself, not an inner status child, so the patch names
+its co-located material, status, and effective-treatment roles explicitly for
+Light, Dark, Frost, and Glass. Connected mode continues to clear that actor and
+paint only the one outer Shelf material.
+
+`0022-luma-context-menu.patch` — applied on the shell train
+(`work/shell-menu-contract`, after 0021, the shelf dock-width fix), where it is
+declared as Patch1021 at release 1.luma.80. It is kept here so the one-kit
+line carries the whole contract; this line's shell series does not apply it.
+
+`0131-luma-shelf-surface-placement.patch` gives every surface opened from the
+shelf one placement rule: Quick Options (from the status controls or the
+clock), dock tooltips, dock menus, window previews, the Well's popover and item
+menus, the live island's options, and Beam. `SHELF_SURFACE_GAP` (8 logical
+pixels, `shelfMetrics.js`) is the only gap; `shelfSurfacePlacement()` puts the
+surface that far beyond the desktop-facing edge of the painted island holding
+the control that opened it, centred on the control, or aligned with the
+island's edge when centring would cross the 14px inset. `lumaShelfSurface.js`
+finds the island and is the one entry point. BoxPointer menus from an island
+carry `luma-shelf-surface` (no beak) and are placed from their allocated size;
+the 0062 `Math.max` override, the tooltip `-y-offset: 16px` and the menus'
+`-boxpointer-gap: 8px` are removed. `tests/gnome-shell/shelf-surface-placement.js`
+checks the rule at package build.
+
+`0132-luma-beam-level-indicator.patch` presents GNOME's on-screen display as
+Beam, Luma's volume and brightness level indicator. `OsdWindowManager` and its
+`show`/`showOne`/`showAll` callers are unchanged. The 236 x 48 capsule uses the
+Quick Options surface tokens for Light, Dark, Frost and Glass, fills to the
+level (stopping at full width when over-amplified while the number shows the
+real value), is placed by the shelf surface rule against the status island or
+centred 8px inside the shelf's work-area edge where no shelf is shown, never
+shows over Quick Options, honours reduced motion, and announces its value
+politely to screen readers. Glyph geometry is Lucide (ISC, `LUCIDE-ICONS` in
+the source register).
+
+`0133-luma-silent-volume-change.patch` removes the `audio-volume-change`
+sound the volume slider played. gnome-settings-daemon patch 0001 removes the
+volume keys' sound and `luma-sound-theme` disables the event as a backstop.
+
+`0135-luma-dock-items-settle-when-views-change.patch` fixes dock icons left a
+few pixels wide after login on a multi-display, mixed-scale machine. A dock
+item eases in from scale 0; the Shelf's monitors-changed sync removes and
+re-adds its islands, which stops that ease unfinished, and the item kept the
+partial scale. A stopped entrance now settles at full size and opacity, and a
+stopped exit still destroys the item. `tests/gnome-shell/dock-entrance/`
+reproduces it.
+
+`0136-luma-dock-previews-resize-and-context-menu.patch`:
+- Closing a window from the dock preview eases the preview to the remaining cards on one timeline, centred on its icon and `SHELF_SURFACE_GAP` from the island on every frame; with reduced motion the change is instant. Closing the last window closes the preview.
+- The dock's context menu is titled with the app's name as a heading. It is grouped as `docs/design/context-menu-contract.md` groups: windows (two or more), app actions, how it starts, system actions. Rules appear only between groups.
+- The menu gains an **Open at Login** switch backed by luma-background's login items (interface version 2). When an app's login start is its background agent, that switch is the agent's decision and "Run in the Background" is not shown twice.
+- Evidence harness: `tests/gnome-shell/beam-shelf/dock94.js`.
+
+`0137-luma-dock-menu-title-in-app-case.patch` titles the dock menu with the app's name in its own case ("Discord"), 13px at weight 700 — a step above the rows — in the rows' own ink for the surface it is drawn on, instead of the uppercase section heading. The menu contract has no separate title style.
+
+`0138-luma-system-indicators-in-the-well.patch` moves GNOME's screen sharing, screencast, casting, dwell click, accessibility and keyboard indicators from the secondary island into the Well. Their own actors move, so clicks and menus still work. It also shows GNOME's recording mark (a recording remote-access handle) there, named for screen readers. `tests/gnome-shell/beam-shelf/share.js` exercises it with a PipeWire session.
+
+`0139-luma-screenshot-shortcuts.patch` makes Ctrl+Shift+1 to 4 the only screenshot shortcuts:
+- Ctrl+Shift+1: the tool as last used.
+- Ctrl+Shift+2: the focused window.
+- Ctrl+Shift+3: the new `show-screenshot-ui-area`, which opens straight in Selection mode.
+- Ctrl+Shift+4: screen recording.
+
+The Print-key defaults are removed. `luma-screenshot-shortcuts-migrate.service` (user, once) resets a person's keys that still hold GNOME's old defaults or the staging values; any other shortcut is kept. `tests/gnome-shell/screenshot-shortcuts-migrate.js` tests the migration at package build.
+
+`0141-luma-beam-island-corners-and-slider.patch`:
+- Beam uses the shelf islands' radius, `SHELF_ISLAND_RADIUS` (15, new in `shelfMetrics.js` and now also used by the islands).
+- Beam is a slider. A press sets the level, a drag follows the pointer, scrolling steps it by 2%, and the volume glyph toggles mute. The level is written through Quick Options' own objects: the output stream slider, with its over-amplification limit, and the brightness manager's scale.
+- Hover and dragging hold the 1.5 s hide timer.
+- Beam never takes keyboard focus. It is exposed as an ATK slider.
+- Evidence harness: `tests/gnome-shell/beam-shelf/beamslider.js`.
+
+`0142-luma-capture-screenshot-tool.patch` replaces GNOME's screenshot panel with Capture (`js/ui/lumaCapture.js`, `data/theme/luma-capture.css`):
+- One bar with Close, three screenshot modes (entire screen, a window, a selection), two recording modes (entire screen, a selection), Options and a labelled Capture/Record button, on the Quick Options surface in every appearance mode. `placeShelfBar` and `placeFromShelfBar` in `lumaShelfSurface.js` place the bar `SHELF_SURFACE_GAP` beyond the dock island (or `SHELF_INSET` above the work area with the dock at a side), and the Options menu, tooltips, recording pill and thumbnail from it.
+- The selection opens empty and is drawn by dragging; choosing a selection mode draws the last selection (Remember Last Selection) or a default box. It has a dashed outline, eight handles, a size label in physical pixels, a 24 × 24 minimum, and a double click takes it. Windows stay in place: the one under the pointer gets an accent outline and wash, and a click takes it.
+- Ctrl+Shift+1 opens the tool in its last mode with nothing selected, Ctrl+Shift+2 (`screenshot-window`) opens window mode waiting for a pick instead of capturing the focused window, Ctrl+Shift+3 opens selection mode, Ctrl+Shift+4 opens recording mode or stops a recording.
+- Options: Save to (Pictures and Videos keep their Screenshots and Screencasts folders; Desktop; Clipboard for screenshots; another folder through the portal's file chooser), a 5 or 10 second timer with a countdown over the live screen, Show Floating Thumbnail, Remember Last Selection, Show Pointer. Every choice is in `org.project_luma.capture` (gnome-shell-common). Messages and Record Sound are not offered: GNOME 50.3's recorder captures video only.
+- Files are "Screenshot YYYY-MM-DD at HH.MM.SS.png" and "Recording YYYY-MM-DD at HH.MM.SS.webm". A floating thumbnail replaces the screenshot and screencast notifications, and clicking it opens the file; failures still notify. A recording shows a pill with the time and Stop where the bar was, and GNOME's screen recording indicator no longer appears. Escape, the pill's Stop and Ctrl+Shift+4 stop it.
+- The bar, menu, pill, countdown, flash, thumbnail and a recording's outline are drawn only in the screen's own paint, never in a screenshot or recording: those paint the stage without a redraw clip.
+- Evidence harness: `tests/gnome-shell/capture/`.
+
+`0143-luma-window-motion-to-dock-icon.patch` (`js/ui/lumaWindowMotion.js`, `js/ui/lumaWindowPath.js`):
+- Minimize draws a window into its app's dock icon in 320 ms, and restore draws it back out. The icon is the dash's `getShelfIconGeometry`, then the dock island's centre, then the middle of the shelf edge on the window's monitor. The path follows the dock's edge: the window narrows along the shelf first and then pours into the icon.
+- An app launched from an icon (dock or search results, through `AppIcon.activate`) grows its first normal window out of that icon in 280 ms. The launch is kept for 8 s and used once. Other windows grow from 94%. Close settles to 95% and fades in place in 180 ms.
+- Only the window actor's scale, translation and opacity change, on one Clutter timeline. A restore that interrupts a minimize (or the reverse) turns around from where it was. Reduced motion completes at once, and the slow-down factor applies.
+- `WindowManager.revealWindow(actor)` plays the opening for a window that was held hidden until placed.
+- Unit test at package build: `tests/gnome-shell/window-motion.js`. Evidence harness: `tests/gnome-shell/beam-shelf/motion.js`, `matrix101.sh`.
+
+`0144-luma-capture-thumbnail-drag.patch` lets the Capture thumbnail be dragged into apps. The Shell starts `luma-capture-drag` (GTK 4, libexecdir) as its own Wayland client (`Meta.WaylandClient`, hidden from the window list, above, on every workspace, never keeping focus) and lays its transparent window over the thumbnail. A drag offers text/uri-list (plus the portal file transfer) and x-special/gnome-copied-files; not image/png, which Files and other GTK apps would prefer and save as "Dropped Image.png". A drop dismisses the thumbnail and keeps the file; a click still opens it. Evidence harness: the `drag` case in `tests/gnome-shell/capture/` (GTK 4 on Wayland and Xwayland, Chromium on Wayland and X11, Files).
+
+`0145-luma-now-playing-island-stays-whole.patch` (`js/ui/lumaMediaIslandGuard.js`):
+- The now-playing island's show and hide end in a known state however they stop: a show cut short by anything but a hide still leaves the island opaque at its natural size, and a hide cut short by anything but a show still hides it. A stopped title or artwork fade leaves it opaque.
+- A guard checks the island about a second after it last changed with nothing animating. If it is still translucent, held narrower than its content, has its controls hidden or squeezed out, or its title button is insensitive, the guard restores it. It logs one journal line starting "Luma shelf: the now-playing island was left" with each part's opacity, size against natural size, style classes, pseudo-classes, the title font, and the last show/hide and fade with what stopped them. The line is written at most once a minute; the times in between are counted.
+- Evidence harness: `tests/gnome-shell/now-playing-island/` (`guard.js`, `beforeafter.js`, `media.js`, `chrome-mpris.py`).
+
+`0147-luma-dock-unread-badges.patch` (`js/ui/lumaDockBadges.js`, `js/ui/lumaDockBadgeModel.js`):
+- Ember unread badges on dock icons: a 15px count pill (99+ past 99) or a 9px dot, ringed in the shelf's own surface colour, top right of the icon at every dock edge. It lives inside the icon beside the masked artwork, so it rides hover, press, drag and the launch zoom and never changes the dock's layout; the dock viewport clips along the shelf only when the dock scrolls.
+- Counts come from the standard `badge` value of an app's background agent (only agents that declare it; never started to read it), then from `com.canonical.Unity.LauncherEntry` (a Flatpak sender may badge only itself). `org.gnome.shell dock-badges-disabled-apps` turns an app's badge off.
+- Owner questions are one-line switches in `lumaDockBadgeModel.js`: `BADGE_FILL`, `NOTIFICATION_COUNT_FALLBACK` (off), `URGENT_WINDOWS_DOT` (off).
+- Tests: `tests/gnome-shell/dock-badges.js` in the verify block; evidence harness `tests/gnome-shell/dock-badges/`.
+
+`0148-luma-dock-badge-deeper-ember.patch`: the badge fill becomes `#c24a0b` (owner, 2026-09-17), 4.91:1 with white against `#f26a1b`'s 3.06:1, which failed WCAG AA at 9.5px. Nothing else changes, and `tests/gnome-shell/dock-badges.js` now fails if white on the fill drops below 4.5:1. `tests/gnome-shell/dock-badges/flatpak-proxy.sh` records what a Flatpak app may do with `com.canonical.Unity.LauncherEntry`: with no extra D-Bus permissions it may emit `Update` through its proxy (which is all a badge needs) and may not own `com.canonical.Unity`, so no Flatpak permission is widened for badges.
+
+`0149-luma-screen-sharing-picker.patch`: Share, the screen sharing picker, with the violet sharing edge and the Stop pill. `lumaShare.js` and `luma-share.css` draw the card in the authentication prompt's language (0146) over live previews of every window and screen; `luma-portal` answers `org.freedesktop.impl.portal.ScreenCast` and asks the Shell for the choice over `org.projectluma.Shell.ScreenShare`, then creates the stream through Mutter itself. ADR-041 records the decision. Window previews are the dock's own renderer (0117), now exported instead of copied; a screen preview clones `global.window_group`, so no preview can contain the picker. The edge and the pill are `CaptureHidden` actors (0142), so they never appear in the stream, and the pill sits in the shelf surface slot through `placeShelfBar` (0131). `messageTray` holds banners while sharing and shows them after Stop; the Well's sharing mark (0138) stands down while the pill is up. Owner questions are one-line switches at the top of `lumaShare.js`: `KEEP_WELL_MARK_WHILE_SHARING` (false), `PILL_VISIBLE_MS` (0, always), `OFFER_CHOOSE_ON_SCREEN` (false). The card carries the ink ledger (0150) for its own stylesheet: frost and glass are smoked veils with white ink, and the Share button and Stop pill keep a light plate on hover; `data/theme/verify-treatment-ink.py` passes on it, and 0149 and 0150 touch no file in common. A second pointer click on the chosen preview shares (no button-press handler); Space only selects and Enter shares. Tested end to end in a headless session through the real portal stack by `tests/gnome-shell/screen-sharing/` (54 checks, light and dark, 100% and 200%), which caught four bugs now fixed here: the screen edge's violet was drawn by the CaptureHidden actor itself and so reached every screen stream (it is now a child), `addTopChrome` threw on an input-region parameter this Shell rejects so a shared screen had no edge or pill, the title was not balanced, and tiles were sized before they were on the stage. Tests: `tests/gnome-shell/screen-sharing.js` in the verify block (52 assertions against the packaged module and stylesheet, including that no button-press override returns), and `tests/luma-portal/test_screencast.py` in the portal's `%check`.
+
+`0151-luma-well-glyphs-and-hover-rhythm.patch`:
+- Every glyph in the status row is drawn at the system indicators' 14px and in the surface's ink: Luma's own Well items, an application's tray icon and an extension's indicator. No full-colour logos in this row (owner, 2026-09-17).
+- `Well._normaliseExtensionIcons` takes the theme's symbolic variant of an adopted icon where there is one; otherwise the icon keeps its own shape, holes included, through the `luma-well-silhouette` shader the Well's own items already use, inked from the actor's own foreground colour. It runs again on every Well rebuild, so an icon the application swaps is caught.
+- An icon with no transparency has no shape, so its silhouette is a filled block. It is inked all the same: a third party's colour is outside the ink ledger's guarantee and can land on the surface's own luminance, where an icon shadow cannot save it — measured at 1.00:1 on light and dark, which carry no icon shadow, and 1.03:1 to 1.24:1 on the smoked treatments (ink agent, 2026-09-17). `_hasShape` measures the icon file's transparent fraction (a shape needs more than 4% clear) only so the Shell can say once in the journal which application sends one.
+- A silhouetted glyph is inside the ledger's guarantee: `.luma-well-glyph` carries geometry only, so the shader inks it from `.luma-well-item`, which is the ledger's `ink` in all four modes.
+- Measured for the worst case, a filled block of ink on veil plus recess, at 100%, 125% and 200% over six backdrops with the shadow discounted: 9.53:1 on light, 10.88:1 on dark, 8.93:1 on frost and 8.09:1 on glass, against a 3:1 threshold for a glyph (ink agent, 2026-09-17). The gate discounts the shadow entirely, so a block and a stroke of the same ink on the same surface measure the same; shape only changes how much the shadow would have added. That is also why the shadow could not rescue a colour block whose raw number was 1.00:1.
+- The Well's items, an extension's indicator, the clock and Quick Options share one highlight box: 28 high, radius 8, 7px of air around a lone glyph and 8px beside text, inset 3px inside the Well's recess and 4px inside the island. The hit target keeps its full height. Pressed is the same box in the pressed fill. The dock's tiles keep their own language, where the artwork lifts and nothing is drawn behind it.
+- Hover and pressed fills are the ink ledger's `hover` and `press`, per appearance mode (light and dark 0.06 and 0.09, frost and glass 0.07 and 0.11), replacing the older per-widget fills. The Well's recess keeps no pair of its own: the veil under it carries the headroom. No ink, shadow, veil or recess value changes here, and `tests/unit/lumaSurfaceInk.js` gates every state stack at %check.
+- A dock tile still has no fill in any state: its artwork lifts instead, which is the dock's own language.
+- The status cluster's hover wash is an actor, so it composites over a button that already carries a fill. `['press', 'hover']` is added to `STACKS` in `tests/unit/lumaSurfaceInk.js` so the gate measures that combination; every other target presents one fill at a time, because a rule replaces a fill rather than stacking it.
+- A 1px ink rim around a full-colour logo was measured as the alternative and rejected (ink agent, 2026-09-17): a logical 1px rim fails light mode at 100% (2.53:1 to 2.69:1 against 3.0) because one device pixel dilutes to half coverage on a half-pixel boundary, and a physical 1px rim fails at every scale for the same reason. A 2px logical rim passes with room (worst 6.69:1) but leaves a 10px core inside the 14px box, which no brand logo survives. If brand colour in this row is ever wanted, the answer is a larger glyph box, which is row geometry and a spec question, not an ink one.
+- Focus on the shelf is drawn only during keyboard navigation (`js/ui/lumaFocusVisible.js`), as :focus-visible works on the web. St marks a widget :focus whenever it holds key focus, and a menu returns key focus to its button when it closes, so after a click on Quick Options, the calendar or a menu the status island stayed ringed (`.luma-status-cluster:focus`, a 2px #91b6d2 ring) and a dock icon kept a blue glow around its artwork. Key focus is unchanged; inside the shelf the :focus pseudo-class is added after a navigation key (Tab, arrows, Home, End, Page keys, F10) and removed by the next click or touch. The status grid mirrors the drawn :focus rather than held key focus (`panel.js`). What is drawn is a 2px ring in the treatment's ink; the old pale blue ring measured 1.9:1 on light paper. After a keyboard close (Escape), focus returns to its button and is ringed on purpose, so a keyboard user can see where they are.
+- The now-playing island never highlights as a whole: its artwork and title raise the player and paint nothing on hover or press. Only its controls, and a Live Extension's actions on the live island, take a hover and a press, now in the ledger's fills. Before, they carried per-widget values from before the ledger (0.14 white on glass, 0.10 on frost, 0.07 dark on light), with a generic `rgba(127,127,127,0.2)` grey wash underneath. An engaged call control keeps its red.
+- An island that is one action highlights edge to edge (`ShelfIsland.setBody`): the beacon (a notification) and the live island (a Live Extension) wash the whole material at its radius, as an inset shadow over the veil, in the ledger's hover and press, and show keyboard focus as a ring on the same edge; buttons inside highlight on top. The body button itself paints nothing on the shelf. Before, only that inner button painted, inset by the island's padding, and the light stylesheet (light, frost, glass) gave a Live Extension a `rgba(255,255,255,0.92)` hover and a blue `rgba(72,120,184,0.14)` press that the shelf never overrode. The now-playing island is several controls and takes no island wash. `['hover','hover']` and `['hover','press']` join the ledger gate's stacks; a press on an inner button does not press the island, so two presses never stack.
+- Evidence harness: `tests/gnome-shell/well-rhythm/` (`well.js`, `focus.js`, `islands.js`, `matrix.sh`).
+
+`0155-luma-quiet-filled-controls.patch` (`js/ui/lumaControlInk.js`, `data/theme/luma-controls.css`): Quick Options' filled controls follow ADR-043. Every on state (an on tile's icon plate, a checked pill, a keyboard-brightness step) takes the one `state` slate with `stateInk` on it; slider handles are a `knob` disc ringed in `knobRing`; chevrons take no plate, only a hairline; Notifications and Calendar are quiet buttons from the ledger. `CONTROL_INK` carries the app kit's values. `data/theme/verify-treatment-ink.py` reads both ledgers and fails the build if `luma-controls.css` spends a colour its mode does not name, if a fill or ring drops below 3:1 or a glyph below 4.5:1, or if the notification island's hover and press leave the ledger or its ink drops below 4.5:1 in any hover or press stack.
+
+`0154-luma-screenshots-match-blurred-surfaces.patch` makes screenshots show frost and glass surfaces as the screen does. `ShellBlurEffect`'s background mode, painting off stage (a screenshot or recording), assumed scale 1 at the stage origin; it now reads the scale and origin from the capture framebuffer's viewport and never copies from outside that framebuffer. Area screenshots through D-Bus (and the colour picker) paint the whole stage and keep the rectangle, so a blurred surface on the edge has its whole backdrop. Evidence harness: the `blur` case and `blurcheck.sh` in `tests/gnome-shell/capture/`.
+
+`0156-luma-capture-hidden-backgrounds.patch`: a privacy fix for Capture. `CaptureHidden` (0142) keeps an actor's children and content out of screenshots, recordings and screen shares, but Clutter paints an actor's own background, border and effects around `paint()`, so the countdown's dark disc and backdrop blur and the flash's white went into every recording or share running during a timed screenshot (76 of 178 frames carried the disc, 12 the flash). The disc, its blur and the flash's white are now children of their `CaptureHidden`, and a comment on `CaptureHidden` states the rule for anything added later. Nothing changes on screen. Evidence: `tests/gnome-shell/capture/eval.js` and `hiddencheck.py`; the verify block checks the packaged module.
+
+`0157-luma-frost-and-glass-menus-follow-the-ink.patch`: popup menus under frost and glass (the desktop menu, the dock and Well menus, the calendar) take the same smoked veils as Quick Options, with 0150's white ink and shadow, the ledger's smoked hover and pressed fills, and white separators, headings and sub-menus, in both variant sheets. They had kept 0045's light frosted veils with dark ink, so the inherited ink shadow smeared their text and white-inked labels vanished. Found by the .112 integration renders.
+
+`0158-luma-live-islands-survive-appearance-changes.patch`: 0151 inked a Well glyph by connecting `style-changed` on it, which a plain Clutter tray actor (a pixmap or XEmbed icon) does not have; a tray icon recreated on a theme change threw on every shelf rebuild, before `_adoptPanelActors` put the live and now-playing islands back, so they vanished on Dark to Light. A plain actor now inks from its nearest St ancestor, a failing adoption is logged and skipped, and the light live-island subtitle ink goes to 66% (5.2:1). `tests/gnome-shell/live-modes/` switches Dark, Light, Frost, Glass, Dark with a Live Extension, a playing tab and a self-replacing pixmap tray icon, and asserts both islands are on the stage, sized and readable in each mode.
+
+`0159-luma-detail-header-glyph-in-light.patch`: a Quick Options detail's header glyph is the detail's ink whether its toggle is on or off; upstream's `.active` rule painted it white for an accent disc Luma does not draw, so in light it vanished on the white detail (Wi-Fi, Bluetooth, Tiling and every other detail with its toggle on). The light detail subtitle ink moves to #6b7076 (5.0:1). `tests/gnome-shell/quick-details/` opens every detail in all four modes, toggle off and on, and asserts the header glyph (>= 3:1) and header text (>= 4.5:1).
+
+`0160-luma-notifications-live-in-the-shelf.patch`: notifications live in the shelf (owner, 2026-09-18). The resting-notification beacon becomes the notifications island, the last island of the row after Quick Options, which it pushes towards the dock; ordinary notifications no longer show a banner. It shows the newest (mark, title, first body line, count pill), opens it on click, opens the 0116 stack from the count, offers up to two actions and a dismiss button on hover or focus, dismisses on a swipe (72 px) or fling (24 px at 0.5 px/ms) to the right or Delete, and leaves with the last one. It grows in from the row's end in 200 ms while the other islands slide aside, and only fades with reduced motion. Urgent notifications and calls keep a card, above the island. The shelf keeps its islands by ADR-044 id (`Shelf.getIsland(id)`, `island.islandId`, actor name `lumaShelfIsland-<id>`). It also makes a shelf sync requested inside a sync wait for the running one and empties the row from a copy: a nested sync had aborted the Shell in `clutter_actor_remove_all_children` (reproduced with a player playing at startup). `tests/gnome-shell/notification-island/` renders 0, 1 and 3 notifications in all four modes and the arrival frames, and exercises hover, dismiss, count, swipe, fling, click, urgent and reduced motion.
+
+`0161-luma-quick-options-highlights-as-one.patch`: no segment of the Quick Options island (Well items and extension indicators, status icons, clock) paints a fill or ring of its own; the shelf washes the whole island on hover, presses it while one of its menus is open and rings the whole island for keyboard focus. Also fixes a blank symbolic extension glyph in the Well (its gicon was cleared after its name was set). `tests/gnome-shell/island-segments/` checks every segment at rest, hovered and focused in all four modes.
+
+`0162-luma-capture-thumbnail-throw-menu-keys.patch`: the screenshot thumbnail is dismissed by a throw toward the right edge (at least 40 px, mostly level, peak 0.6 px/ms, not resting before release); short or slow drags spring back and drops still deliver the file. A right-click, Shift+F10 or Menu opens Open, Open With (default first, Other Application… via the portal), Copy, Copy File, Show in Filer, Rename… (in place) and Move to Trash (with an Undo pill for six seconds); the thumbnail stays while its menu is open. Delete trashes, Escape dismisses, Enter opens. `tests/gnome-shell/capture-thumbnail/` drives each of these with a virtual pointer and keyboard.
+
+`0163-luma-sticky-dock-only-with-sticky-notes.patch`: the sticky note stack (0078, 0079) is built only while Sticky Notes is installed (its desktop entry is known, or `org.projectluma.StickyNotes` is activatable), rechecked on `installed-changed` and added or removed live; without it there is no dead "+" rail and nothing is logged as an error. `tests/gnome-shell/sticky-dock/` starts without the app, installs and removes its desktop entry, then a D-Bus service file alone.
+
+`0164-luma-quick-options-match-the-design.patch`: Quick Options matches the Design Center again. Two shapes: Wi-Fi, Bluetooth and any other connection are 64px cards; every other switch is a 44px pill (icon and one word, no status line) in a three-column grid ordered Tiling, Location, Warm light, Airplane mode ("Airplane"), Keyboard, Cast, then GNOME's other switches. `QuickSettingsLayout` counts six units (card 3, pill 2, level 6) and never leaves a hole: two pills on a last row take half the width each, one pill or a lone card the whole width. An on pill takes the design's tinted wash (no longer 0155's filled slab); a pill with a menu toggles and opens its menu from a boxless chevron inside its trailing edge (26px of layout, 32px hit area through `QuickDisclosureButton`'s pick overhang). Cards and levels share one 30px raised disclosure with a filled chevron (`luma-disclosure-{down,up}-symbolic`). Volume reads "48% · <output>", every level keeps the disclosure's slot, and the microphone row (GNOME's rule: only while an app records) sits under it. Detail sheets move from the overlay into the grid: in flow under their owner's row, one at a time, drawn with their owner as one shape by `QuickSheetFrame` (`-luma-sheet-fill`, `-luma-sheet-line`, `-luma-sheet-radius`), titled in sentence case with a muted count and no icon, listing `QuickSheetRow` choices (two lines, whole-row button, raised fill and dot for the current one) and ending in plain settings links. The Notifications and Calendar buttons and the background-apps row are no longer shown; the background-apps indicator still runs. Cast shows only with a network or a known screen. `tests/gnome-shell/quick-details/` asserts every sheet is in flow, joins its owner, repeats no icon and keeps its title and count at 4.5:1 in all four modes.
+`0167-luma-movable-shelf-islands.patch`: movable shelf islands (ADR-044). Any island (dock, live, media, notifications, Well, Quick Options, clock) is held still for 400 ms, or chosen from the Shelf menu (right-click: Arrange Islands…, Reset Island Layout, Shelf Settings…), or moved with Ctrl+Alt(+Shift)+arrow, and dropped on any edge or corner, free or attached to another group. The shelf becomes a controller over groups of attached islands, one tracked chrome actor per group, placed by the pure model `shelfArrangement.js` (zones, band solver, status fusion, drop targets, keyboard steps, announcements, struts, displays); arrange mode lives in `shelfArrange.js`. The arrangement is the shell-state key `shelf-arrangement` (luma-shell-state 1.luma.27); empty is today's layout, and a spanning shelf of separate islands is drawn as two groups (dock at the start, the rest at the end), exactly as before. One strut per occupied edge per monitor; bands stay reserved while their island is hidden; struts never move during a drag. Surfaces, the notification tray and banners follow each island's own edge. `tests/gnome-shell/shelf-arrangement.js` (gjs, run in %check verification) covers the model; `tests/gnome-shell/shelf-arrange/` drives the owner's scenarios, every island to every zone, attach and detach, struts and Tiling Shell, keyboard, the menu, the tray, a restart, two monitors, four modes and drag cost in the headless oracle.
+
+`0170-luma-frost-and-glass-are-one-light-material.patch`: frost and glass are one light material, with application windows (owner, 2026-09-18: "dash is dark? and titlebars are not frost"). SURFACE_INK's frost and glass entries are light veils (frost islands rgba(246,247,249,.80), menus and sheets .88; glass .62 and .80) with ink one step deeper than paper's, and `LIGHT_FAMILY` names light, frost and glass. Every stylesheet rule for `luma-surface-light` also names frost and glass with the translucent veils swapped in, the smoked frost/glass colours of 0150, 0157, 0164 and 0167 are gone, menus, the beam and the prompt/share/capture cards take the veils, the notification Sass maps are regenerated, the status cluster and Well take the light recess, and the Shell loads its light variant sheet for frost and glass. Blur: frost radius 38 saturation 1.6, glass 18 and 1.35. `tests/unit/lumaSurfaceInk.js` measures every veil, ink and state stack over black, mid grey and white; `verify-treatment-ink.py` refuses near-white ink on the light family.
+
+`0171-luma-dash-islands-on-every-edge-and-every-setting.patch`: the owner's feedback on movable islands. Shared monitor edges take islands, reserved through Mutter 0016's `meta_display_set_monitor_edge_reservation()` (closed as before without it). A drop goes to the zone the pointer is in, else the zone nearest the island's centre, and the ghost is a preview group of the island's real length in its target form. Islands attach or sit at start/centre/end unless `shelf-free-placement` (shell-state 1.luma.28) is on. Zones are drawn at a distance weight (22% at rest) and each edge has a faint line that steps aside around placeholders, groups and the ghost. Arranging shows a ghost live-extensions slot. Use islands off + span draws one bar, Float outer edges moves and squares the band ends, Protrude keeps the windows' padding, `shelf-reserve-work-area` and Position are honoured. Side-edge forms for media, live and the clock. The Dash menu is a kit menu reading "Dash Settings…". `tests/gnome-shell/shelf-arrange/` adds edges3, tiling3, targeting, weights, ghostlive, settings, menus and look.
+
+`0172-luma-dash-islands-as-arranged.patch`: the owner's findings on .118 (ADR-044). Ships the `luma-live-extensions-symbolic` glyph 0171 named. Centred groups stay on the centre line (the dock shrinks both sides first); start/end reach the true ends (side bands stop at a corner only when a top/bottom band is there); hidden islands take no length and hold no edge, with arrange-mode ghosts for hidden live extensions and notifications and a `LUMA_SHELF_RESERVATIONS` journal field per change; the live and media islands are one family in one slot; attach/apart with a dead zone and hysteresis, measured against the layout at drag start; free placement exact with 12 px soft snaps and no zone grid; Use islands off draws one full-length bar per edge laid out by the band solver (all four edges alike); one 2 px full-height divider token. .120: empty edges reserve nothing (no margin strut or work-area inset unless Reserve work area is off); a click on the notifications island toggles the drawer, and the drawer and urgent cards open beside the island on any edge, moving in from it. Tests: owner, matrix, family, retile, notifplace, asarranged. .121: every edge's ends reach the corner unless a top or bottom group sits at that end (or a bar, which runs its edge); without islands adjacent bars meet as one L with no rim across the joint; the group handle is a 48 by 22 target that says what it does, and Quick Options, the clock and the status icons move together (Shift takes one out); arrange mode shows only the Live extensions and Notifications placeholders, always in their slot; empty items take no length, spacing or divider and grow in when they show; hovering the notifications island only changes its look; the drop index follows the pointer against the islands' midpoints; Tiling Shell's panel button never joins the Dash; the Dash announces work-area changes (`work-area-changing`, `Main.shelf.workAreaMotion`) and `Main.wm.lumaGlideFrame` moves a window in one glide. `Main.shelf.reservedMargins(monitor)` says how much of each edge's reservation is the margin a window keeps from an island, so Tiling Shell can make every gap the same. Tests: round121, livetile, tiles, gaps.
+
+`0176-luma-dock-folders-glyph.patch`: ships `luma-dock-folders-symbolic`, the glyph arrange mode names for the folders island (0172). A folder with its tab and flap line, same 24-unit grid and outlined 2-unit strokes as the other island glyphs. Shell .141.
+
+`0277-login-surfaces-and-dock-battery-percentage.patch` connects the custom dock status cells to the existing battery percentage presentation and measures their text in all dock orientations. Removes the login power separator gap and uses one solid login card surface.
+
+`0278-brightness-one-percent-and-idle-input.patch` uses 100 brightness steps where the backlight supports them, keeps coarser hardware steps, and clears idle dimming for explicit brightness key input. Existing ALL action-mode bindings and hardware state remain authoritative across lock/unlock.
+
+`0290-compact-login-action-bar.patch` gives narrow native GDM/unlock surfaces a
+centered clock and password action bar while retaining the real verifier.
+`0291-shared-handheld-startup-and-input.patch` starts the existing shared Home on
+handheld hardware, removes the upstream automatic welcome tour, and uses native
+physical-keyboard presence for automatic OSK behavior. Accessibility remains an
+explicit override; missing event actors propagate safely. These are shared Shell
+changes, with physical qualification tracked separately from source/package checks.
+
+`0297-keycap-key-path.patch`: the Keycap key path from the Fold investigation
+(no per-key restyle or relayout of the keyboard, no hover on `keyboardBox`, one
+pointer tracker over whole cells with touch correction, press-order rollover,
+frame-time long press and repeat from event timestamps, repeat bound to a live
+touch, grab-free alternatives, commits at once, sentence case from the
+keyboard's own text, adjustResize through Mutter 0025, D-Bus activated haptics,
+no per-key IBus traffic with layout sources). Rules and tests:
+`docs/mobile/keycap-keyboard.md` ("Key path"). Shell .132.
+
+`0298-keycap-press-path-and-lock-screen.patch`: a press costs a translation
+(cached cell geometry, one stage read, no restyle: a tint actor and
+per-character preview labels, priors computed in idle, haptic after the press
+frame, tail-only surrounding text), and on the lock screen the keyboard serves
+only the visible unlock entry, closes on lock and keeps the compact prompt
+above it. Tests: `keycap-keypath-native.js`, `keycap-lock-native.js`.
+Shell .133.
+
+`0299-single-layer-shadows.patch`: every multi-layer shadow (lock/login
+poster card, avatar, password field and focus ring, away well, Quick Options
+radio hover, dock icons, detached dock folder) reduced to the single layer St
+paints, ending the "Ignoring excess values in shadow definition" journal
+flood; `tools/check-shell-shadows.py` guards it in the build.
+
+`0300-keycap-cached-grid-and-press-overlay.patch`: key layers cached as one
+texture, the pressed cap drawn over them, previews without offscreen text
+caches shown by opacity above their keys, a warm-up that runs on a timer
+after the keyboard shows, and a vocabulary built in 3 ms slices. Shell .137.
+
+`0301-keycap-layer-switch-swaps-cached-layers.patch`: every key layer stays
+shown and laid out at opacity 0 and the current one is opaque, so a layer
+switch (sentence case, shift, symbols) reuses both cached textures; the grid
+ratio, which re-pages the emoji panel and relays out the keyboard, is set only
+when it changes; shift keys are restyled only when their latch changes; the
+warm-up draws every layer into its cache. Shell .137.
+
+`0302-keycap-warm-layers-after-every-show.patch`: Clutter queues a redraw of
+every actor it maps, so each keyboard show invalidated every layer's cache and
+the first layer switch after it (the first capital's release) drew a whole
+layer. Layers are marked cold when the keyboard is mapped, its stage views
+change or its layout is rebuilt, and drawn again one per frame while it
+slides in or sits idle, never in a frame that handles a touch. Shell .137.
+
+`0303-mobile-data-quick-toggle.patch`: a Mobile Data Quick Settings toggle
+bound to `org.projectluma.MobileMode1` for modems that carry either IMS or
+mobile data at a time; hidden where that service does not run. Quick Options
+gives it a fifth utility slot. Shell .140.
+
+`0316-st-reuse-prerendered-backgrounds.patch`: St drew, blurred and uploaded
+a cairo-prerendered background (gradients, mixed borders) and its box-shadow
+again whenever a paint state changed, so a focus moving between two styles
+and every row of a list of identical rows paid for a CPU draw, a CPU blur and
+a texture upload. Interned theme nodes now keep recently rendered prerendered
+paint states (node, size, resource scale) in a 48 MB LRU that later paint
+states copy from; entries go with their node and when its image files change.
+On a Raspberry Pi 5 at 4K these draws were most of the TV quick panel's shell
+CPU time. Shell .155.
+
+
+`0317-blur-bound-pass-after-backdrop-copy.patch`: a background blur copies the
+framebuffer under its actor, which ends a tiling GPU's pass over the frame;
+the pass after it covered the whole framebuffer however little was drawn
+(Raspberry Pi 5, 3840x2160: about 15 ms per blurred dock island, five per
+frame). The blurred backdrop and the actor are drawn inside a clip of the
+actor's paint box, so the driver can bound that pass (mutter 0027 bounds the
+rest). Surfaces thinner than 256 pixels are downscaled for the blur like larger
+ones (the copy keeps 16 pixels per side), a quarter of the pass work for the
+dock; screenshots match the previous blur (SSIM 0.9996 or more). Shell .156.
+
+`0318-st-selector-index.patch`: each new theme node was tested against every
+selector of every stylesheet, about half of the Shell's CPU time while the
+overview or Quick Options opened on a Raspberry Pi 5. Selectors are indexed per
+stylesheet under their last compound selector's ID, first class or element
+type, and a node is tested only against the selectors filed under its ID,
+classes and type ancestry plus the few with none of those, in stylesheet order,
+so the matched declarations are unchanged (checked on 30000 nodes across the
+presentations). `LUMA_ST_NO_SELECTOR_INDEX=1` restores the full scan. Shell
+.156.
+`0319-blur-keep-pass-textures.patch`: a background blur repaints every frame,
+and each paint built a ClutterBlurNode with three new textures and two
+pipelines, then copied its result into a further texture before drawing it to
+the stage. The effect now runs the two gaussian passes itself (ClutterBlur's
+shader; ClutterBlur is private to mutter) into textures kept while the actor's
+size and downscale stay the same: the vertical pass samples the source copy
+directly, the horizontal pass reads it, and the brightness pipeline draws the
+result. Two fewer GPU passes and no texture allocations per blurred surface
+and frame; on a Raspberry Pi 5 with the dock's four blurs and full redraws,
+29% fewer GPU jobs and 22% less Shell CPU time, screenshots unchanged (SSIM
+0.99997). Shell .157.
+
+`0320-blur-hold-backgrounds-under-modal.patch`: a background blur's copy ends a
+tiling GPU's pass, so the dock's blurred surfaces, drawn before a modal
+dialog's full-screen lightbox, made every frame of the search overview opening
+two full-screen passes (about 20 ms each at 3840x2160 on a Raspberry Pi 5;
+frames took two refreshes). `Shell.BlurEffect.hold_backgrounds(owner)` keeps the
+last blurred background of every background blur outside `owner` while its
+actor stays where it was copied from; `release_backgrounds(owner)` (or
+disposing `owner`) ends it. ModalDialog holds while it has a lightbox and is
+not closed. Headless at 3840x2160 with full redraws: 45% fewer GPU jobs across
+overview open and close; the open overview's screenshot is unchanged (SSIM
+0.99999). Shell .157.
+
+`0321-luma-setup-welcome-cover.patch`: the first session after Luma's
+first-boot setup (`/var/lib/luma-setup/welcome/<user>`, until
+`~/.local/state/luma-setup/welcome-done`) opens on the setup's last frame.
+`luma-setup-cover.service` starts with the Shell and draws that frame again
+from the same data, code, wallpaper, softening and text settings. At the top
+of the startup animation the Shell waits (15 s at most) for that window's
+title to say its first frame is drawn, then shows the stage: a clone of the
+window above everything, `uiGroup` at opacity 0. With Luma's gdm (patches/gdm)
+the setup keeps the screen while this session starts paused; at
+`startup-complete` the Shell writes `/run/luma-setup/session/cover-ready`,
+the setup holds its frame and gdm switches here, and `registerDisplayWithGDM`
+waits for the first frame on screen, since registering ends the setup's
+session. The cover lifts (1.1 s fade) and the window closes. Without the
+setup's frame, the cover is a blurred wallpaper of the Shell's own. The
+cover window never animates in. Shell .158.
+
+`0322-tv-home.patch`: registers the TV posture's sources in the JS resource
+(`lumaPresentation/tv.js`, `tvModel.js`, the generated `tvTokens.js` and the
+pre-blurred `tv-backdrop.jpg`) and lists `tv.js` for translation. The sources
+live in `src/luma-shell-presentation/` and are copied in `%prep` like the rest
+of the presentation. `presentation.js` hands the screen to `TvPresentation`
+when the shell-state snapshot's `posture.effective` is `tv`; its handheld
+machinery stays on Desktop underneath, and a snapshot without a posture (an
+older shell-state) behaves exactly as before. In TV posture the TV home
+(Home, Apps, Search) replaces the Dash, panel, overview and sticky stack;
+applications run full screen, and minimising the last one returns to Apps. Flatpak's export keeps only allowlisted desktop keys, so for an entry with `X-Flatpak` and no TV keys the TV home reads `X-Luma-TV*` from the app's own deployed desktop file (system or user installation only, `tvModel.js` `flatpakTv`; cached until the installed apps change) and its tile from the deploy's `share/luma-tv/`. Test: `tv-flatpak-policy.js` in %check. Shell .160.
+
+`0323-tv-keyboard.patch`: the TV posture of the Keycap keyboard. While
+`TvPresentation` holds TV posture (`Main.keyboard.setTvPosture()`) every field
+gets the keyboard (a remote is a keyboard without letters), opening when a
+field takes the input focus and closing when it leaves; window moves, panel
+toggles and the window-slide/adjustResize paths are skipped. Layout: the
+language model laid out by `tvKeyboard.js` as an aligned 11-column grid
+(Android TV's Leanback keyboard: digits and delete, three letter rows filled
+with @ _ & , . - ?, then 123, shift, space and the action key; Left/Right
+wrap, Up/Down keep their column), number pads kept; look from the
+`tv.keyboard` tokens as inline styles in TV units, dark, no tool strip,
+suggestions or previews. The remote's focus is a key-material actor in the
+layers' parent (the cached layers are never redrawn); arrows, OK, Escape and
+Escape are Mutter accelerators only while the keyboard is open (a remote's
+Back arrives as Escape, see 0324), OK on an
+Enter key acts on release, Back or Up from the top row closes and arms OK to
+reopen. `InputMethod` reports printable keys from real devices
+(`reportPhysicalKeys`, TV only), which close the keyboard. The keyboard
+exports `org.projectluma.Shell.Keyboard1` (`SetActionLabel`, `Visible`,
+`Height` in TV units); docs/developer-platform/tv-mode.md "Typing". Test:
+`tv-keyboard-policy.js` in %check. Outside TV posture nothing changes.
+
+`0324-tv-input.patch`: registers `lumaPresentation/tvInput.js` and its pure
+rules `tvInputModel.js` in the JS resource. `TvPresentation` runs `TvInput`
+only while it holds TV posture: gamepads read through libmanette
+(`gi://Manette?version=0.2`, optional; Recommends libmanette) become TV keys
+from a Clutter virtual keyboard (D-pad and left stick = arrows at the
+`tv.input` repeat pace, South = Return, East and Select = Escape, Start =
+the quick panel (0329), Guide or Select+Start = the TV home), and remote keys that are not TV
+keys (XF86Back, XF86Close, XF86OK, XF86Select, XF86HomePage, XF86RootMenu,
+XF86MenuKB, XF86ContextMenu; CEC keys through rc-cec) are Mutter accelerators
+re-sent as TV keys. A pad reaches only the Shell, the TV keyboard and
+`X-Luma-TV-Presentation=tv` apps, never a window whose process claimed the
+pads (`org.projectluma.Shell.Remote1.ClaimGamepads`); other applications read
+the pad untouched. The pad is never grabbed. docs/developer-platform/tv-mode.md
+"Remotes and gamepads". Test: `tv-input-policy.js` in %check.
+
+`0325-tv-dialogs.patch`: registers `lumaPresentation/tvDialogs.js` and its
+pure rules `tvDialogsModel.js` in the JS resource. While `TvPresentation`
+holds TV posture, `TvDialogs` adapts every `ModalDialog` as it opens (Wi-Fi,
+VPN and keyring secrets, the administrator prompt, end session, mounts, run,
+access): the card takes the `tv.sheet` scale, type and material with its live
+blur off, entries become recessed fields with the TV keyboard's action key
+named after the default button, buttons become TV actions with the focus as
+the one key, and the card rises above the keyboard. The focus is kept inside
+the dialog that holds the grab (the TV home no longer takes it from under a
+grab), and Back acts in the capture phase on the Escape button or a lone
+button even if the focus was lost. Dialogs without buttons (Luma Search) and
+every dialog outside TV posture are unchanged; `polkitAgent.js`,
+`dialog.js` and `modalDialog.js` are not patched. docs/developer-platform/
+tv-mode.md "System dialogs". Test: `tv-dialogs-policy.js` in %check. The sheet width is whole pixels and a card its dialog placed itself is restyled once per width of its own, so restyle and placement converge at a unit that is not whole (1280x800). Shell .161.
+
+`0326-tv-screen-edges.patch`: registers `lumaPresentation/tvScreenEdges.js`.
+In TV posture `TvPresentation` scales `Main.uiGroup` (the TV home and every
+window) about the centre by `1 - tv-screen-edges/100` (shell-state key,
+0–10 %), live, for a TV that overscans; leaving TV posture restores scale 1.
+Settings › Display › Fit › Screen edges writes the key. Without the key (an
+older shell-state) nothing changes. Applies after 0325.
+
+`0327-tv-quick-panel.patch`: registers `lumaPresentation/tvQuickPanel.js` and
+its pure rules `tvQuickPanelModel.js` in the JS resource. In TV posture, OK on
+the TV home bar's weather | time cluster (Right past Search) or a long press
+of Home (`tv.quick_panel.home_hold_ms`; a remote's Home or CEC Root Menu, a
+pad's Guide; Select+Start still goes home at once) opens the quick panel:
+a full-height sheet sliding out from the right screen edge that adopts the bar's
+cluster as its header. It is a view of the
+existing Quick Options and notification list, not a second backend: the
+account (AccountsService), NetworkManager's Wi-Fi toggle, gnome-bluetooth's
+toggle and the Do Not Disturb setting as chips, the output stream slider and
+its devices, MessageTray's notifications (OK runs the default action, Clear
+all dismisses as the tray does), Settings, Sleep (suspend, or the
+screensaver's blank where logind cannot suspend) and Power (Restart… and
+Power Off… through SystemActions, confirmed by the TV dialog). Rows without
+a backend are not drawn. Back or Left off the island closes it and the focus
+returns to the cluster. docs/developer-platform/tv-mode.md "The quick panel".
+Test: `tv-quick-panel-policy.js` in %check. Leave TV Mode (a row of its own right under the toggles, shown while TV was chosen in Quick Options) closes the panel and calls the shell state's `SetPosture('automatic')`, as Quick Options' mode picker does, so the saved presentation returns. Shell .160.
+
+`0328-tv-app-switcher.patch`: registers `lumaPresentation/tvAppSwitcher.js`
+and its pure rules `tvAppSwitcherModel.js` in the JS resource. In TV posture,
+Home pressed twice (`tv.app_switcher.double_ms`) opens the app switcher: the
+running apps (`Shell.AppSystem` and `sessionApplications.js`, newest first in
+Alt+Tab order) as cards of their latest window picture (a `Clutter.Clone`) or
+TV tile over the TV home's scrim, the bar staying. OK switches, Back returns.
+Up, a held OK or Menu on a card offers Close, the desktop's Quit
+(`requestQuit`); an app still running after `force_after_ms` offers Force
+Close (`Meta.Window.kill()`, as the not-responding dialog). The TV home's
+tiles get a running dot and a held-OK menu with Open and Close. A single Home
+now goes home after the double-press window. docs/developer-platform/
+tv-mode.md "Closing apps". Test: `tv-app-switcher-policy.js` in %check.
+
+`0329-tv-pointer.patch`: registers `lumaPresentation/tvPointer.js` in the JS
+resource. In TV posture the pointer hides the moment a remote, pad or keyboard
+key arrives and after `POINTER_IDLE_MS` (3 s) of rest, through Mutter's
+cursor tracker (`inhibit_cursor_visibility`); motion, a click or a scroll
+shows it. The posture's end always shows it again. The same branch makes a
+pad's Start the system pause menu (the quick panel over any app; a game that
+claimed the pads keeps it), adds `Remote1.ShowQuickPanel` for an app's bar
+clock, and taps a Shell-held accelerator (XF86Launch9, at most every 5 s) on
+pad input so Mutter's idle time sees a pad. Test: `tv-input-policy.js` (with
+`tvPointer.js`) in %check.
+
+`launcherFolders.js` (0285): the desktop folder stack swaps a dock folder
+tile's mark in, and the original back, below the tile's count badge, so the
+badge paints above the folder art. Test: `dock-folder-badge-policy.js` in
+%check. Shell .162.
+
+`launcherFolders.js` (0285): the folder stack sizes the count badge with the
+dock badge model's `badgeBox`, so a single digit is a circle and longer counts
+a pill, the same as every other dock badge. Test: `dock-folder-badge-policy.js`
+in %check. Shell .163.
+
+`0330-luma-date-menu-calendar-only.patch`: the date menu (the clock in Quick
+Options) is the calendar column alone: today, the calendar, and events with
+world clocks and weather. It builds no notification list; notifications live
+in the notification tray, Do Not Disturb in Quick Options, and media in the
+shelf. `optionsSurface.css` drops the column's side margin. Test:
+`date-menu-calendar-only-policy.js` in %check. Shell .164.
+
+`0331-luma-date-menu-calendar-panel.patch`: the date menu's events list shows
+what is coming up from now into next month, grouped by day, at most four rows
+and then "N more this week"; a chosen day lists that day ("Nothing on
+Thursday." when empty), and choosing it again goes back to today. Rows open
+the event in Luma Calendar (`--event-uid` and `--event-day`, as its reminders
+do); "N more" and Open Calendar open Calendar on that day (`--event-day`).
+The month header (with Today when another month is on show) replaces the date
+header; the month on show pages without choosing a day, arrow keys walk the
+days, and each day's accessible name counts its events. Opening Calendar
+closes the menu. The calendar server adds each
+event's location and its calendar's colour to the extras dictionary.
+`optionsSurface.css` styles the panel: today filled, the chosen day a ring,
+hover a tint. Test: `date-menu-panel-policy.js` in %check. Shell .165.
+
+`0332-handheld-greeter-keyboard.patch`: the on-screen keyboard fits a
+handheld's greeter. The greeter builds no presentation, so the keyboard takes
+Keycap's `standaloneInset` there (the thumb gap on a phone-width handheld
+screen). Keys report no minimum height, so one label's fallback font (the
+square root on the second symbols layer) no longer raises every row above the
+Keycap rule and pushes the bottom row off a narrow screen. The login dialog
+lays its content out in the height the keyboard leaves, as the unlock dialog
+does. Test: `keycap-policy.js` (now also given `js/gdm/loginDialog.js`) in
+%check. Shell .168.
+
+`0333-cellular-status-indicator.patch`: the status area shows the modem's
+state whenever the device has one. The network indicator draws a modem only
+while mobile data is the primary connection, so a phone that was registered
+without data, searching, or without a SIM showed nothing. `status/cellular.js`
+reads ModemManager's modems over its object manager (never starting it) and
+`lumaPresentation/cellularStatus.js` maps state, failed reason, SIM, 3GPP
+registration and signal quality to one icon: GNOME's signal names while
+registered (the handheld status bar redraws them as the Lucide signal glyphs),
+`luma-cellular-no-service-symbolic` otherwise, `luma-cellular-no-sim-symbolic`
+for a missing SIM. A searching modem still reports its last signal, so the
+signal is drawn only once registered. While mobile data is the primary
+connection the network indicator leaves the signal to this one. The two new
+glyphs are Lucide's radio-off and card-sim (`vendor/lucide-shell-status`),
+geometry unchanged, as symbolic strokes at the 1.6 status weight. Without a
+modem nothing is drawn. Test: `tests/gnome-shell/presentation/cellular-status.js`
+(source checks). Shell .169.
+
+`0334-search-keeps-the-on-screen-keyboard.patch`: typing on the on-screen
+keyboard no longer closes Search. Search closes on a press outside its painted
+surfaces from a `captured-event` handler that runs before ModalDialog's, which
+routes the keyboard's events while the dialog holds the grab; the first key
+press counted as outside. Keyboard events are routed first. Test:
+`search-keyboard-policy.js` in %check (runs the handler from the source against
+stubs). Shell .170.
+
+`0335-keycap-controls-in-the-thumb-gap.patch`: on a phone held upright the
+thumb gap below the keys carries keyboard settings (left) and hide (right) in
+one touch row (`Keycap.controlRow`, `min_row`) above the home gesture zone;
+both leave the tool strip there. The gap was an empty keyboard-coloured band,
+and hide lived only in the strip, which suggestions replace while a word is
+typed. Other insets (tablet, landscape, Desktop, TV) are unchanged. Test:
+`keycap-policy.js` in %check. Shell .170.
+
+`0336-keycap-panel-corners.patch`: the keyboard keeps its outer keys above a
+panel's rounded bottom corners. `bottomCornerClearance()` (safeAreas.js)
+reads the display profile's corner exclusions on the bottom edge, in logical
+pixels, and `bottomInset()` (keycap.js) keeps the keys above them in every
+mode, Desktop included; where a phone's thumb gap is taller the gap and its
+control row are unchanged. The greeter, which has no presentation, reads the
+built-in panel's profile in keyboard.js and passes the clearance to
+`Keycap.standaloneInset`. Test: `keycap-policy.js` in %check. Shell .172.
+
+`0337-greeter-power-button.patch`: the login screen builds no presentation,
+so the handheld power button (a short press blanks or wakes the display) did
+nothing there. main.js builds a `HandheldPowerButton` of its own in greeter
+mode, and the button (powerButton.js) skips the screen-shield lock when there
+is no session to secure. Handheld device class only. The greeter's dconf (GDM
+profile) also sets media-keys `power-static=@as []`
+(config/mobile/luma-greeter-handheld.dconf), as luma-shell-handheld.dconf
+does for the session, or gsd-media-keys takes the key first at boot.
+Shell .175.
+
+`0338-window-corners-flatpak-instance.patch`: corner ownership covers a
+Flatpak's whole instance. Mutter reports the D-Bus peer as the PID of a client
+it connected through its service channel, and Filer connects that way, so its
+windows carried the instance's xdg-dbus-proxy, which never loads libadwaita:
+Filer was masked like a Chromium window and, maximized, the mask cut its own
+shadow out of the corner squares. A window whose process did not load
+libadwaita is now left alone when another process in its `app-flatpak-*.scope`
+did. Test: `window-corners-first-commit.js` in %check. Shell .176.
+
+`0339-search-names-phone-and-tablet.patch`: Search names the device it runs
+on. The mobile presentation says "Search this phone" and "Everything on this
+phone, in one place.", the tablet presentation "tablet", and both hide the
+"esc" chip, which means nothing without an Esc key; an outside tap still
+closes Search. The desktop keeps "this machine" and the chip. Test:
+`search-keyboard-policy.js` in %check. Shell .177.
+
+`0340-keycap-phone-key-arrangement.patch`: the letter and symbol pages take
+the phone arrangement of Gboard and AOSP LatinIME. Delete ends the last letter
+row (after M), Enter ends the bottom row, and the bottom row is ?123, comma,
+language (several input sources) or emoji, space and period. Shift, delete,
+?123 and Enter are 1.5 keys wide; space is 4 on the letter pages and 3 on the
+symbol pages, where `_` and `/` sit beside it; a nine-key middle row is inset
+by half a key on each side. `Keycap.phoneLevels()` builds the rows from each
+language's layout file. Number pads, terminal layouts and TV are unchanged.
+Test: `keycap-policy.js` in %check. Shell .178.
+
+`0341-keyboard-destroy-height-handler.patch`: a keyboard destroyed while shown
+(a mouse or keyboard plugged in turns the on-screen keyboard off) disconnects
+the keyboard box's height handler that showing it connected. The handler
+outlived the actor and wrote translation-y to it on every later monitor change.
+Test: `keycap-policy.js` in %check. Shell .179.
+
+`0342-keyboard-tap-focused-field-opens.patch`: a text field focused by a tap
+opens the on-screen keyboard on the first tap. Mutter shows the keyboard only
+when a client enables a text input that is already focused, and GTK asks from
+the click release, which comes before the focus for the first field in a
+process (the text input is bound lazily) and for fields that take the focus on
+release. The keyboard remembers the window under the last touch; a text input
+focus-in on that window while the finger is down, or within 500 ms of it
+lifting, opens it, unless the field arrives with its text selected (focused
+by the application, as a page opening selects its first field). Touch events
+come only from touchscreens, so pointer and keyboard use are unchanged.
+Test: `keycap-policy.js` in %check. Shell .180.
+
+`0343-keyboard-first-touch-arms-tap.patch`: the keyboard manager, not the
+keyboard, records the window under the last touch for 0342. The manager
+creates the keyboard only after it learns the last device is a touchscreen,
+which is after that touch went down, so the first touch after startup or
+after a mouse or touchpad was used went unrecorded, and a field focused from
+the release (Notes' search) got no keyboard on that tap.
+Test: `keycap-policy.js` in %check. Shell .181.

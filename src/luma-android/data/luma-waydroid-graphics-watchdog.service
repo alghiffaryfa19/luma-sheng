@@ -1,0 +1,29 @@
+[Unit]
+Description=Restart Android after its graphics services restart
+Documentation=https://project-luma.local/android
+PartOf=waydroid-container.service
+# Wants= alone starts this even when the container is refused or skipped.
+BindsTo=waydroid-container.service
+After=waydroid-container.service
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/luma-waydroid-graphics-watchdog
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+# It only reads /proc and asks systemd to start the recovery unit.
+CapabilityBoundingSet=
+AmbientCapabilities=
+DevicePolicy=closed

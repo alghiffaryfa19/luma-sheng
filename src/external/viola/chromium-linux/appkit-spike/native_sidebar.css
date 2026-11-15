@@ -1,0 +1,129 @@
+/* SPDX-License-Identifier: GPL-3.0-only
+ * Viola-only content roles. Frame, titlebar, controls, menus and island remain
+ * entirely owned by the installed AppKit. No application palette is copied.
+ */
+.viola-sidebar { padding-top: 2px; }
+.viola-tab, .viola-favorite { border-radius: 10px; color: @luma_ink; }
+.viola-tab { min-height: 34px; padding: 0 6px 0 10px; }
+.viola-tab:not(.active):hover { background: @luma_hover; }
+.viola-tab-activate { padding: 0; border: 0; background: transparent; box-shadow: none; min-width: 0; min-height: 0; }
+.viola-tab-activate label { font-size: 13px; font-weight: 550; }
+.viola-tab.active label { font-weight: 650; }
+.viola-tab.sleeping label { color: @luma_muted; }
+.viola-tab-close { background: transparent; border: 0; box-shadow: none; padding: 0; margin: 8px 0; min-width: 18px; min-height: 18px; opacity: 0; }
+.viola-tab-close image { -gtk-icon-size: 10px; }
+.viola-tab:hover .viola-tab-close, .viola-tab.active .viola-tab-close { opacity: .5; }
+.viola-tab-close:hover { opacity: 1; }
+.viola-favorite { min-height: 42px; }
+.viola-favorite .viola-tab-activate { min-height: 42px; min-width: 0; padding: 0 12px; border-radius: 10px; }
+.viola-workspace-header { min-height: 28px; padding: 0 6px 0 8px; background: transparent; border: 0; box-shadow: none; }
+.viola-workspace-header label { font-size: 9px; font-weight: 700; letter-spacing: .09em; color: @luma_muted; }
+.viola-group-header { min-height: 34px; padding: 0 10px; background: transparent; border: 0; box-shadow: none; }
+.viola-group-header label { font-size: 13px; font-weight: 600; }
+.viola-group-header .viola-group-count { font-size: 9px; color: @luma_muted; }
+.viola-workspace-dot { min-width: 8px; min-height: 8px; border-radius: 999px; }
+.viola-workspace-dot.blue { background: @luma_blue; }
+.viola-workspace-dot.green { background: @luma_green; }
+.viola-workspace-dot.amber { background: @luma_amber; }
+.viola-workspace-dot.violet { background: @luma_violet; }
+.viola-workspace-dot.red { background: @luma_destructive; }
+.viola-tab-group.expanded { background: @luma_fill; border-radius: 13px; padding: 4px; }
+.viola-workspace-switcher { min-height: 36px; padding: 0 10px; background: transparent; border: 0; box-shadow: none; border-radius: 10px; }
+.viola-workspace-switcher label { font-size: 13px; font-weight: 650; }
+
+.viola-new-tab { min-height: 34px; padding: 0 10px; color: @luma_muted; background: transparent; border: 0; box-shadow: none; }
+.viola-new-tab label { font-size: 13px; font-weight: 550; }
+/* The composite address uses LumaUI BarEntry’s Well, including its live inset tokens. */
+.viola-address entry { min-height: 34px; padding: 0 8px; border: 0; border-radius: 12px; background: transparent; box-shadow: none; font-size: 13px; font-weight: 600; }
+.viola-address entry:focus-within { outline: none; box-shadow: none; }
+.viola-address button { min-width: 28px; min-height: 28px; padding: 0; border: 0; background: transparent; box-shadow: none; border-radius: 8px; }
+.viola-address button.lumaui-selected { color: @luma_accent; }
+.viola-address.secure entry image.left { color: @luma_green; }
+/* A deliberate, narrow control at the frame edge leaves bottom web inputs
+ * accessible without revealing the whole bar on ordinary pointer movement. */
+/* It is a notch of the window's bottom frame: the frame's own colour, no
+ * outline or shadow, joined to the edge by inverted corners. It appears only
+ * while the bar is tucked into it. */
+.viola-bar-handle {
+  min-width: 0; min-height: 0; padding: 0;
+  /* Overlap the page edge's rim so no seam runs under the notch. */
+  margin: 0 0 -2px 0;
+  border: 0; border-radius: 0; background: none; box-shadow: none;
+  color: @luma_frame_muted;
+  opacity: 0; transform: translateY(6px);
+  transition: opacity 180ms ease-out, transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.viola-bar-handle.viola-bar-handle-shown { opacity: 1; transform: none; }
+.viola-bar-handle-tab {
+  min-width: 68px; min-height: 14px;
+  border-radius: 9px 9px 0 0;
+  background: @luma_window_bottom;
+  transition: background 120ms ease;
+}
+.viola-bar-handle-start, .viola-bar-handle-end { min-width: 8px; min-height: 8px; }
+.viola-bar-handle-start {
+  background: radial-gradient(circle at 0 0, transparent 7.5px, @luma_window_bottom 8.5px);
+}
+.viola-bar-handle-end {
+  background: radial-gradient(circle at 100% 0, transparent 7.5px, @luma_window_bottom 8.5px);
+}
+.viola-bar-handle image { -gtk-icon-size: 10px; }
+.viola-bar-handle:hover { background: none; color: @luma_frame_ink; }
+.viola-bar-handle:hover .viola-bar-handle-tab { background: shade(@luma_window_bottom, 1.12); }
+.viola-bar-handle:focus-visible { outline: none; }
+.viola-bar-handle:focus-visible .viola-bar-handle-tab { outline: 2px solid @luma_focus_ring; outline-offset: -2px; }
+/* The bar sinks into the handle and rises back out of it. */
+.viola-page-bar-motion {
+  transition: transform 280ms cubic-bezier(0.32, 0.72, 0, 1), opacity 220ms ease;
+}
+.viola-page-bar-motion.viola-bar-tucked { transform: translateY(44px) scale(0.16, 0.3); opacity: 0; }
+.viola-footer { padding: 4px; }
+.viola-notice-header { min-height: 22px; }
+.viola-notice-heading { font-size: 9px; font-weight: 700; letter-spacing: .09em; color: @luma_muted; }
+.viola-notice-count { min-width: 16px; min-height: 16px; border-radius: 999px; background: @luma_fill; font-size: 9px; }
+.viola-notice-clear { min-height: 0; padding: 0; background: transparent; box-shadow: none; border: 0; color: @luma_muted; font-size: 11px; font-weight: 600; }
+.viola-notice-card, .viola-player { border-radius: 15px; background: @luma_content; border: 1px solid @luma_line; box-shadow: 0 1px 2px @luma_island_shadow; }
+.viola-notice-card { padding: 10px 7px 10px 10px; }
+.viola-notice-icon { min-width: 30px; min-height: 30px; border-radius: 10px; background: @luma_fill; }
+.viola-notice-open { padding: 0; min-height: 0; border: 0; box-shadow: none; background: transparent; }
+.viola-notice-title, .viola-player-title { font-size: 13px; font-weight: 650; }
+.viola-notice-detail { font-size: 11px; font-weight: 550; color: @luma_muted; }
+.viola-player-row { padding: 9px 8px 10px 12px; }
+.viola-player-artist { font-size: 9px; color: @luma_muted; }
+.viola-player .viola-player-play { border-radius: 999px; background: @luma_ink; color: @luma_content; }
+.viola-workspace-dot.neutral { background: @luma_muted; }
+.viola-tab .viola-tab-activate:active,
+.viola-tab .viola-tab-activate:focus { background: transparent; box-shadow: none; }
+.viola-tab-activate:focus-visible {
+  outline: 2px solid @luma_focus_ring;
+}
+
+/* Insertion hints use the current toolkit accent and never change row geometry. */
+.viola-drop-before { box-shadow: inset 0 2px @accent_color; }
+.viola-drop-after { box-shadow: inset 0 -2px @accent_color; }
+
+/* Put keyboard focus on the whole row, never around its text-sized button. */
+.viola-tab:not(.active):focus-within, .viola-favorite:not(.active):focus-within {
+  box-shadow: inset 0 0 0 1px @luma_line;
+}
+.viola-address-suggestions > contents { min-width: 0; }
+.viola-address-suggestions .luma-menu-row { min-width: 0; }
+
+.viola-tab.viewed-elsewhere label { color: @luma_muted; }
+.viola-favorite.viewed-elsewhere .viola-tab-favicon { opacity: .55; }
+.viola-tab-elsewhere { color: @luma_muted; }
+
+/* Download progress remains readable without hover; reuse AppKit's palette. */
+.viola-download-status { font-size: 11px; font-weight: 650; color: @luma_accent; }
+.viola-download-progress trough { min-height: 6px; border-radius: 3px; background: @luma_fill; }
+.viola-download-progress progress { min-height: 6px; border-radius: 3px; background: @luma_accent; }
+.viola-download-progress.paused progress { background: @luma_muted; }
+
+/* A site's sign-in grown from the bar (native_signin.py): LumaUI's panel
+   confirm, with the primary key's fill on Sign in instead of the red action. */
+box.viola-signin { border-spacing: 8px; }
+button.viola-signin-action {
+  background: @luma_key; background-image: linear-gradient(to bottom, @luma_key, @luma_key_end);
+  color: @luma_key_ink; box-shadow: inset 0 1px 0 @luma_key_highlight, 0 0 0 1px @luma_key_ring;
+}
+button.viola-signin-action:hover { filter: brightness(1.08); }

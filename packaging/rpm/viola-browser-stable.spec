@@ -1,0 +1,366 @@
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# Viola for Luma: the signed Viola 0.2.10 engine with the native-integration
+# platform patches, driven by the native GTK host (chromium-linux/appkit-spike).
+# Release 30 of the native integration is the build Nick runs on his ThinkPad
+# (20260921-native-30, chromium-linux/releases/native30). Source0 comes from
+# assemble-native-engine.sh, which verifies every engine file against
+# native-30-engine.sha256.
+
+%global viola_version 0.2.10
+%global viola_build 8210
+%global native_release 44
+# The native host is shared. Both CPUs use source-built engines from the same
+# tree (engine patches 0001-0005); each has its own release number.
+%ifarch aarch64
+%global engine_release 36
+%global approved_release 20261108-native36-arm-desktop
+%global engine_sha256 285400fa482d40e8cee961e3726268bdb779f72c287ebf7a1a38cfec8dc30d31
+%else
+%global engine_release 35
+%global approved_release 20261108-native35-x86-desktop
+%global engine_sha256 354dc6bc19aef237a50fab0ac5695af21e89debf4561e370654543989f57a433
+%endif
+
+# Prebuilt Chromium engine: no debuginfo split and no automatic stripping (the
+# release already stripped it); keep its private libraries out of the
+# RPM dependency graph so they never satisfy or demand system libraries.
+%global debug_package %{nil}
+%global __strip /bin/true
+%global _build_id_links none
+%global __provides_exclude_from ^/opt/viola/.*$
+%global __requires_exclude ^(libQt5.*|libQt6.*)$
+# The engine stays byte-identical to the approved release (its wrapper keeps #!/bin/bash).
+%global __brp_mangle_shebangs_exclude_from ^/opt/viola/.*$
+
+Name:           viola-browser-stable
+Version:        151.0.7922.72
+Release:        15.viola%{viola_build}.native%{native_release}.creator20261113.1%{?dist}
+Summary:        Viola web browser
+License:        GPL-3.0-only AND BSD-3-Clause AND LGPL-2.1-or-later AND Apache-2.0 AND IJG AND MIT AND GPL-2.0-or-later AND ISC AND OpenSSL AND (MPL-1.1 OR GPL-2.0-only OR LGPL-2.0-only)
+URL:            https://github.com/nmcmil/Viola
+ExclusiveArch:  x86_64 aarch64
+
+Source0:        viola-native-engine-%{viola_version}-native%{engine_release}.tar.zst
+Source1:        viola-luma-host-%{viola_version}-native%{native_release}.tar.gz
+
+BuildRequires:  zstd
+BuildRequires:  desktop-file-utils
+BuildRequires:  librsvg2-tools
+BuildRequires:  python3
+BuildRequires:  systemd-rpm-macros
+BuildRequires:  python3-gobject
+BuildRequires:  gtk4
+BuildRequires:  libadwaita
+BuildRequires:  luma-application-installer >= 0.1.0-1.luma.61
+BuildRequires:  luma-developer-platform
+BuildRequires:  gstreamer1-plugins-bad-free-libs
+# The host's widget tests need a display: a headless Weston.
+BuildRequires:  weston
+BuildRequires:  dbus-daemon
+# The engine's own libraries, so %%check can run it.
+BuildRequires:  nss
+BuildRequires:  gtk3
+BuildRequires:  alsa-lib
+BuildRequires:  cups-libs
+BuildRequires:  mesa-libgbm
+BuildRequires:  libXcomposite
+BuildRequires:  libXdamage
+BuildRequires:  libxkbcommon
+BuildRequires:  at-spi2-atk
+BuildRequires:  vulkan-loader
+
+Requires:       python3
+Requires:       python3-gobject
+Requires:       gtk4
+# Chromium hidden native windows use the supported GTK3 backend.
+Requires:       gtk3
+# Menu headings, shortcut chips and disabled rows take solid inks (libadwaita 0039).
+Requires:       libadwaita >= 1.9.3-1.luma.48
+Requires:       luma-developer-platform >= 0.1.0-1.luma.117
+Requires:       luma-application-installer >= 0.1.0-1.luma.61
+Requires:       mutter
+Requires:       dbus-broker
+Requires:       systemd
+Requires:       gstreamer1-plugins-bad-free-libs
+Requires:       xdg-utils
+Requires:       ca-certificates
+Requires:       liberation-fonts
+Provides:       viola-browser = %{version}-%{release}
+
+%description
+Viola, Luma's web browser. Luma's native window, toolbar, sidebar and menus
+drive Viola's Chromium engine, which keeps browser state, profiles, extensions,
+downloads and sandboxing. This build is Viola %{viola_version} (build
+%{viola_build}) with native integration release %{native_release}.
+
+%prep
+%setup -q -c -T
+zstd -dc %{SOURCE0} | tar -xf -
+mkdir host
+tar -xzf %{SOURCE1} -C host --strip-components=1
+# Every engine and host file must be the approved release's.
+(cd engine && sha256sum -c --quiet ../host/luma-package/native-%{engine_release}-engine.sha256)
+(cd host/appkit-spike && sha256sum -c --quiet ../luma-package/native-%{native_release}-host.sha256)
+if [ -e host/luma-package/native-engine-profile.json ]; then
+  test '%{_arch}' = aarch64
+  cmp host/luma-package/desktop-arm-preview-frame-profile.json host/luma-package/native-engine-profile.json
+fi
+
+%build
+# The host manifest includes the supplied SVG and all nine locked PNGs.
+# Preserve those bytes; do not regenerate artwork during packaging.
+
+%install
+engine=%{buildroot}/opt/viola/browser
+install -d %{buildroot}/opt/viola
+mv engine "$engine"
+# The engine archive keeps the modes of the tree it was assembled in (setgid
+# 2750 directories and 0600 files from the native33/34 archives), which hides
+# the browser from every user but root. Package fixed modes instead.
+find "$engine" -type d -exec chmod u=rwx,go=rx,ug-s {} +
+find "$engine" -type f -perm /0111 -exec chmod u=rwx,go=rx {} +
+find "$engine" -type f ! -perm /0111 -exec chmod u=rw,go=r {} +
+mv "$engine/chrome-sandbox.packaged" "$engine/chrome-sandbox"
+chmod 4755 "$engine/chrome-sandbox"
+install -d %{buildroot}%{_bindir}
+install -m 0755 host/luma-package/viola-browser %{buildroot}%{_bindir}/viola-browser
+install -D -m 0644 host/luma-package/org.projectluma.ViolaHost1.service \
+  %{buildroot}%{_datadir}/dbus-1/services/org.projectluma.ViolaHost1.service
+ln -s /opt/viola/browser/viola-browser %{buildroot}%{_bindir}/viola-browser-stable
+
+# Flatpak mounts xdg-run/luma-viola read-only only if the parent exists already.
+# Normal user tmpfiles creates it before dbus.socket allows first activation.
+install -D -m 0644 host/luma-package/luma-viola-user.conf \
+  %{buildroot}%{_user_tmpfilesdir}/luma-viola.conf
+install -D -m 0644 host/luma-package/luma-viola-dbus-socket.conf \
+  %{buildroot}%{_userunitdir}/dbus.socket.d/50-luma-viola-runtime.conf
+
+# Exactly the approved host files; menus and toolkit follow the installed
+# Luma libadwaita and GTK (no private resource overlay since release 23).
+install -d %{buildroot}%{_datadir}/viola-browser/luma-host
+(cd host/appkit-spike && cut -c67- ../luma-package/native-%{native_release}-host.sha256 |
+  xargs -d '\n' cp --parents -t %{buildroot}%{_datadir}/viola-browser/luma-host/)
+find %{buildroot}%{_datadir}/viola-browser -type d -exec chmod 0755 {} +
+find %{buildroot}%{_datadir}/viola-browser -type f -exec chmod 0644 {} +
+if [ -f host/luma-package/native-engine-profile.json ]; then
+  install -m 0644 host/luma-package/native-engine-profile.json \
+    %{buildroot}%{_datadir}/viola-browser/native-engine-profile.json
+fi
+
+install -d %{buildroot}%{_datadir}/applications
+desktop-file-install --dir=%{buildroot}%{_datadir}/applications host/luma-package/viola-browser.desktop
+desktop-file-install --dir=%{buildroot}%{_datadir}/applications host/luma-package/com.rhyme.viola.desktop
+for size in 16 24 32 48 64 128 256 512 1024; do
+  install -D -m 0644 "host/appkit-spike/assets/viola-icon/viola-$size.png" \
+    %{buildroot}%{_datadir}/icons/hicolor/${size}x${size}/apps/viola-browser.png
+  ln -s viola-browser.png %{buildroot}%{_datadir}/icons/hicolor/${size}x${size}/apps/com.rhyme.viola.png
+  ln -s viola-browser.png %{buildroot}%{_datadir}/icons/hicolor/${size}x${size}/apps/com.rhyme.viola.browser.png
+done
+install -D -m 0644 host/appkit-spike/assets/org.projectluma.Viola.NativeIntegration.svg \
+  %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/viola-browser.svg
+for name in com.rhyme.viola com.rhyme.viola.browser org.projectluma.Viola.NativeIntegration; do
+  ln -s viola-browser.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/$name.svg
+done
+cp -a system/usr/share/appdata system/usr/share/gnome-control-center system/usr/share/man \
+  %{buildroot}%{_datadir}/
+install -d %{buildroot}%{_datadir}/licenses/%{name}
+cp -a system/usr/share/licenses/viola-browser-stable/. %{buildroot}%{_datadir}/licenses/%{name}/
+
+python3 - %{buildroot} <<'PY'
+import hashlib, json, pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+chrome = root / 'opt/viola/browser/chrome'
+source_revision = pathlib.Path('host/luma-package/luma-source-revision').read_text().strip()
+assert re.fullmatch('[0-9a-f]{40}', source_revision)
+record = {
+    'viola_version': '%{viola_version}', 'viola_build': %{viola_build},
+    'native_release': %{native_release}, 'approved_release': '%{approved_release}', 'engine_release': %{engine_release},
+    'source': {'repository': 'https://github.com/SimplyLuma/luma', 'commit': source_revision},
+    'engine_released_sha256': '%{engine_sha256}',
+    'engine_packaged_sha256': hashlib.sha256(chrome.read_bytes()).hexdigest(),
+}
+profile = root / 'usr/share/viola-browser/native-engine-profile.json'
+if profile.exists():
+    record['native_engine_profile'] = {
+        'selection': json.loads(profile.read_bytes()),
+        'sha256': hashlib.sha256(profile.read_bytes()).hexdigest(),
+    }
+(root / 'usr/share/viola-browser/provenance.json').write_text(json.dumps(record, indent=2) + '\n')
+PY
+
+%check
+engine_manifest=$PWD/host/luma-package/native-%{engine_release}-engine.sha256
+host_manifest=$PWD/host/luma-package/native-%{native_release}-host.sha256
+host=%{buildroot}%{_datadir}/viola-browser/luma-host
+# The installed host is exactly the approved one: every file and nothing else.
+(cd "$host" && sha256sum -c --quiet "$host_manifest")
+test "$(find "$host" -type f | wc -l)" = "$(wc -l <"$host_manifest")"
+if [ -f host/luma-package/native-engine-profile.json ]; then
+  cmp host/luma-package/native-engine-profile.json "$host/../native-engine-profile.json"
+else
+  test ! -e "$host/../native-engine-profile.json"
+fi
+python3 - "$host" <<'PY'
+from pathlib import Path
+import sys
+sys.path.insert(0, sys.argv[1])
+from engine_pipe import native_frame_profile_flags
+selected = Path(sys.argv[1]).parent / 'native-engine-profile.json'
+assert native_frame_profile_flags() == (['--viola-native-shm-frame-probe'] if selected.exists() else [])
+PY
+# The host's unit tests (the approved files plus test-only modules), on a headless Weston.
+# (Wayland socket paths are limited to 108 bytes, so not below the build tree.)
+export XDG_RUNTIME_DIR=$(mktemp -d /tmp/viola-check.XXXXXX)
+weston --backend=headless --socket=viola-check --idle-time=0 >"$PWD/check-weston.log" 2>&1 &
+weston_pid=$!
+for _ in $(seq 100); do [ -S "$XDG_RUNTIME_DIR/viola-check" ] && break; sleep 0.1; done
+[ -S "$XDG_RUNTIME_DIR/viola-check" ] || { tail -n 5 "$PWD/check-weston.log"; exit 1; }
+# Tests corrected after the release was cut (luma-package/check-tests) replace
+# their released copies for %%check only; the installed host stays the release's.
+rm -rf check-host
+cp -a host/appkit-spike check-host
+cp host/luma-package/check-tests/test_*.py check-host/
+status=0
+(cd check-host && WAYLAND_DISPLAY=viola-check GDK_BACKEND=wayland GSK_RENDERER=cairo PYTHONDONTWRITEBYTECODE=1 \
+  dbus-run-session -- python3 -m unittest discover -p 'test_*.py') || status=$?
+kill "$weston_pid" 2>/dev/null || true
+wait "$weston_pid" 2>/dev/null || true
+rm -rf "$XDG_RUNTIME_DIR"
+[ "$status" = 0 ]
+desktop-file-validate %{buildroot}%{_datadir}/applications/viola-browser.desktop
+desktop-file-validate %{buildroot}%{_datadir}/applications/com.rhyme.viola.desktop
+grep -qx 'NoDisplay=true' %{buildroot}%{_datadir}/applications/com.rhyme.viola.desktop
+bash -n %{buildroot}%{_bindir}/viola-browser
+# Validate shipped native startup inputs; actual new-UID ordering is a runtime gate.
+cmp host/luma-package/luma-viola-user.conf %{buildroot}%{_user_tmpfilesdir}/luma-viola.conf
+cmp host/luma-package/luma-viola-dbus-socket.conf %{buildroot}%{_userunitdir}/dbus.socket.d/50-luma-viola-runtime.conf
+cmp host/appkit-spike/assets/org.projectluma.Viola.NativeIntegration.svg \
+  %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/viola-browser.svg
+for size in 16 24 32 48 64 128 256 512 1024; do
+  cmp host/appkit-spike/assets/viola-icon/viola-$size.png \
+    %{buildroot}%{_datadir}/icons/hicolor/${size}x${size}/apps/viola-browser.png
+done
+# Menus take surface and ink from the installed toolkit: no private overlay.
+test ! -e %{buildroot}%{_datadir}/viola-browser/toolkit
+grep -qx 'unset G_RESOURCE_OVERLAYS' %{buildroot}%{_bindir}/viola-browser
+! grep -q 'G_RESOURCE_OVERLAYS=' %{buildroot}%{_bindir}/viola-browser
+# The engine runs and reports its version.
+%{buildroot}/opt/viola/browser/chrome --version | grep -F '%{version}'
+# The whole engine, executable included, is byte-identical to the released one
+# (the SUID helper is installed under its final name), and nothing else is there.
+test "$(sha256sum <%{buildroot}/opt/viola/browser/chrome | cut -c1-64)" = '%{engine_sha256}'
+grep -qx '%{engine_sha256}  chrome' "$engine_manifest"
+(cd %{buildroot}/opt/viola/browser &&
+  sed 's/  chrome-sandbox\.packaged$/  chrome-sandbox/' "$engine_manifest" | sha256sum -c --quiet)
+test "$(find %{buildroot}/opt/viola/browser -type f | wc -l)" = "$(wc -l <"$engine_manifest")"
+test -u %{buildroot}/opt/viola/browser/chrome-sandbox
+python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["engine_packaged_sha256"] == r["engine_released_sha256"] == "%{engine_sha256}", r' \
+  %{buildroot}%{_datadir}/viola-browser/provenance.json
+
+%files
+%dir %{_userunitdir}/dbus.socket.d
+%{_user_tmpfilesdir}/luma-viola.conf
+%{_userunitdir}/dbus.socket.d/50-luma-viola-runtime.conf
+%{_datadir}/dbus-1/services/org.projectluma.ViolaHost1.service
+%license %{_datadir}/licenses/%{name}
+%dir /opt/viola
+/opt/viola/browser
+%{_bindir}/viola-browser
+%{_bindir}/viola-browser-stable
+%{_datadir}/viola-browser
+%{_datadir}/applications/viola-browser.desktop
+%{_datadir}/applications/com.rhyme.viola.desktop
+%{_datadir}/icons/hicolor/*/apps/viola-browser.png
+%{_datadir}/icons/hicolor/*/apps/com.rhyme.viola.png
+%{_datadir}/icons/hicolor/*/apps/com.rhyme.viola.browser.png
+%{_datadir}/icons/hicolor/scalable/apps/viola-browser.svg
+%{_datadir}/icons/hicolor/scalable/apps/com.rhyme.viola.svg
+%{_datadir}/icons/hicolor/scalable/apps/com.rhyme.viola.browser.svg
+%{_datadir}/icons/hicolor/scalable/apps/org.projectluma.Viola.NativeIntegration.svg
+%{_datadir}/appdata/viola-browser.appdata.xml
+%{_datadir}/gnome-control-center/default-apps/viola-browser.xml
+%{_mandir}/man1/viola-browser.1*
+%{_mandir}/man1/viola-browser-stable.1*
+
+%changelog
+* Fri Nov 13 2026 Project Luma <maintainers@projectluma.org> - 151.0.7922.72-15.viola8210.native44.creator20261113.1
+- Host native44: the engine leaves Wayland color management off on its private display, so shared-memory frames stay sRGB and pages appear on GPU-backed ARM systems.
+
+* Sun Nov 08 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-15.viola8210.native43.creator20261108.3
+- Host native43: the window opens wide enough to keep its sidebar, and the sidebar keeps the media preview down to a 480 px height, so background video is drawn, not only received.
+- The private engine display waits while Mutter makes progress (up to 120 s) instead of failing after 15 s, and says why when it fails.
+
+* Sun Nov 08 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-15.viola8210.native42.creator20261108.2
+- Engine patch 0005: a failed WebRTC readback of a GPU video frame no longer deadlocks the renderer (a background tab's video froze with the media preview).
+- Engines native35 (x86) and native36 (ARM): native34 and native33 with 0005; only chrome differs.
+
+* Sun Nov 08 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-15.viola8210.native42.creator20261108.1
+- Package the engine with fixed modes: 0755 directories without setgid, 0755/0644 files.
+
+* Sat Nov 07 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-15.viola8210.native42.creator20261107.1
+- x86 engine native34: source-built from the ARM engine's tree (0001-0004), with the host-drawn sign-in.
+
+* Sat Nov 07 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-15.viola8210.native41.creator20261107.1
+- Ask for a site's HTTP sign-in in the bar: the engine hands the login request to the host (ARM engine native33).
+- ARM engine native33: native32 with one tab in a new private window and the host-drawn sign-in.
+
+* Mon Nov 02 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-15.viola8210.native40.creator20261102.1
+- Tuck the address bar into a notch of the bottom frame, shown only while the bar is hidden.
+- Stop advertising WebAuthn until the host draws the passkey dialog, so sign-in offers other methods.
+
+* Sun Oct 25 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-15.viola8210.native38.creator20261025.1
+- Add an explicit ARM desktop frame transport profile and native frame diagnostics.
+
+* Thu Oct 08 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-14.viola8210.native36.creator20261008.1
+- Restore qualified shared floating page controls and pointer-and-rings artwork; retain the existing engine, signed host service and profile migration.
+
+* Thu Oct 08 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-13.viola8210.native35.creator20261008.1
+- Restore the established hidden-engine GTK3 backend, guarantee its runtime dependency, and report abnormal engine termination while retaining the exact native30 engine.
+
+* Thu Oct 08 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-12.viola8210.native34.creator20261008.1
+- Create the owned private display parent during normal user startup before the signed browser sandbox mounts it read-only.
+
+* Wed Oct 07 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-10.viola8210.native32.creator20261007.1
+- Keep portable compositor lease cleanup idempotent after release or incomplete startup, preserving host wire interface31.
+
+* Wed Oct 07 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-9.viola8210.native31.creator20261007.1
+- Retain the approved native30 engine and provide a bounded signed portable UI compositor lease with caller-loss cleanup.
+- Delegate native activation to the signed owner and use the portable application identity for the shared update monitor.
+
+* Mon Oct 05 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-8.viola8210.native30.toolbar20261005.5
+- Forward native touchscreen gestures to Chromium with bounded motion traffic.
+- Give Mini the shared action bar and labelled primary Open in Viola action.
+
+* Mon Oct 05 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-7.viola8210.native30.toolbar20261005.4
+- Use shared raised pin cards and the darker inset address Well.
+- Restore scroll-away page controls; bound and coalesce heavy-page wheel input.
+- Add aggregate address input diagnostics without recording typed content.
+
+* Mon Oct 05 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-7.viola8210.native30.toolbar20261005.4
+- Shared floating page controls at desktop, compact and phone widths.
+- Above-bar address suggestions and shared ShareSheet/Downloads.
+- Toolkit inset workspace picker, raised active tabs and reversible top pins.
+- Keep the title row free of the sidebar button and page title.
+- Explicit GTK3 backend for hidden Chromium; visible host remains GTK4.
+- Require the shared v71 AppKit rather than accepting an older toolkit.
+- Ship the locked pointer-and-rings icon from Nick's October 4 handoff.
+
+* Tue Sep 22 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-5.viola8210.native30
+- Native integration release 30 as Nick runs it: the Skia capture completion
+  crash is fixed, command timeouts no longer close every window, and the
+  release 28 and 29 tab restore, wheel and clipboard fixes are included.
+  The engine ships exactly as released (already stripped).
+
+* Fri Sep 18 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-4.viola8210.native23
+- Native integration release 23 as approved: zoom shortcuts, completed-download
+  file actions, native select menus and paste, engine pipe response locking.
+  Menus and toolkit follow the installed Luma appearance (no private overlay).
+
+* Thu Sep 17 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-3.viola8210.native22
+- App menus use the system appearance tokens for surface and ink, so they
+  are legible in light, frost and glass (native integration release 22).
+
+* Thu Sep 17 2026 Nick McMillen <nmcmil@users.noreply.github.com> - 151.0.7922.72-2.viola8210.native21
+- Viola 0.2.10 with Luma native integration release 21 (native window,
+  independent DevTools window, mouse back/forward, context-menu grab fix).

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: CC-BY-4.0
+# Recorded exceptions to tests/smoke/package-release-contract.sh: pinned
+# packages this tree knowingly cannot rebuild, either because the pin is ahead
+# of the spec here or because the package's source lives outside this
+# repository (no spec here). Each line names one exact pinned name and
+# version-release (without the disttag), who owns closing it, the date from
+# which the exception no longer holds (YYYY-MM-DD, or - for none), and why it
+# is accepted. The contract reports these instead of failing. It fails if an
+# exception is malformed, no longer matches such a pin, or has reached its
+# expiry, so remove the line when the pin moves or the source lands.
+#
+# NAME  VERSION-RELEASE  OWNER  EXPIRES  REASON
+luma-phosh  0.55.0-1.luma.51  mobile-lane  -  Retained physical FP6 pin; its 1.luma.51 source is not on a pushed ref. This tree now builds 1.luma.59 with the four-favorite dock and GTK3 CSS fixes; ARM package/device qualification is required before replacing the retained pin. Not in the x86_64 desktop image.

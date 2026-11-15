@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Name=Photos
+Comment=Browse and view photos
+Exec=prairie-photos %U
+Icon=org.projectluma.Photos
+Terminal=false
+Categories=Graphics;Photography;
+MimeType=image/avif;image/heif;image/jpeg;image/png;image/webp;video/mp4;video/quicktime;video/webm;
+Keywords=Photo;Picture;Image;Gallery;
+StartupNotify=true
+DBusActivatable=false
+X-Purism-FormFactor=Workstation;Mobile;
+# TV home opt-in (docs/developer-platform/tv-mode.md): its TV presentation is prairie_apps/photos_tv.py.
+X-Luma-TV=true
+X-Luma-TV-Tile=org.projectluma.Photos-tv
+X-Luma-TV-Presentation=tv

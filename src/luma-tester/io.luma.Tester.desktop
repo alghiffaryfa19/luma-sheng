@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Try Luma
+Comment=Explore and develop for Luma Mobile and Desktop
+Exec=luma-tester gui
+Icon=io.luma.Tester
+Terminal=false
+Categories=Development;Emulator;
+StartupNotify=true
+StartupWMClass=io.luma.Tester

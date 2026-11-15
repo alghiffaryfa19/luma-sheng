@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SimplyLuma/luma/devices/device.schema.json",
+  "title": "Luma device manifest (devices/<vendor>/<codename>/device.toml)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "vendor", "codename", "name", "form_factor", "soc", "tier", "maintainers", "kernel", "boot", "firmware", "install"],
+  "properties": {
+    "schema": {"const": 1},
+    "vendor": {"$ref": "#/$defs/slug"},
+    "codename": {"$ref": "#/$defs/slug"},
+    "name": {"type": "string", "minLength": 2, "maxLength": 80},
+    "marketing_name": {"type": "string", "minLength": 2, "maxLength": 80},
+    "form_factor": {"enum": ["phone", "tablet", "laptop", "desktop", "handheld", "other"]},
+    "year": {"type": "integer", "minimum": 2000, "maximum": 2100},
+    "soc": {"type": "string", "pattern": "^[a-z0-9]+/[a-z0-9][a-z0-9-]*$"},
+    "tier": {"enum": ["supported", "community", "experimental"]},
+    "maintainers": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^@[A-Za-z0-9][A-Za-z0-9-]*(/[A-Za-z0-9._-]+)?$"}
+    },
+    "fastboot_product": {"type": "string", "pattern": "^[A-Za-z0-9_-]+$"},
+    "kernel": {
+      "type": "object", "additionalProperties": false,
+      "required": ["release", "dtb"],
+      "oneOf": [
+        {"required": ["tag", "config"], "not": {"anyOf": [{"required": ["source_lock"]}, {"required": ["distribution"]}]}},
+        {"required": ["source_lock", "config"], "not": {"anyOf": [{"required": ["tag"]}, {"required": ["distribution"]}]}},
+        {"required": ["distribution", "nevr"], "not": {"anyOf": [
+          {"required": ["tag"]}, {"required": ["source_lock"]}, {"required": ["config"]},
+          {"required": ["branch"]}, {"required": ["rpm_version_release"]}, {"required": ["dtb_overlays"]},
+          {"required": ["config_fragments"]}, {"required": ["patches"]}
+        ]}}
+      ],
+      "properties": {
+        "distribution": {"enum": ["fedora"], "description": "Boots the distribution's own kernel package, unmodified; no Luma kernel tag, source lock or .config."},
+        "nevr": {"type": "string", "pattern": "^kernel-[0-9]+\\.[0-9]+(\\.[0-9]+)?-[A-Za-z0-9._+]+$", "description": "The distribution kernel package the device was qualified with, as name-version-release."},
+        "branch": {"$ref": "#/$defs/slug", "description": "Overrides the SoC's kernel branch."},
+        "source_lock": {"$ref": "#/$defs/relpath"},
+        "tag": {"type": "string", "pattern": "^luma-[a-z0-9-]+-[A-Za-z0-9._+-]+$"},
+        "release": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?[A-Za-z0-9._+-]*$"},
+        "rpm_version_release": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?-[A-Za-z0-9._+-]+$"},
+        "config": {"$ref": "#/$defs/relpath"},
+        "config_fragments": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/relpath"}, "description": "Kconfig fragments in this repository, merged over config in order."},
+        "patches": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/relpath"}, "description": "Kernel patches in this repository, applied over the tag in order."},
+        "dtb": {"type": "string", "pattern": "^[a-z0-9_-]+/[A-Za-z0-9_.,+-]+\\.dtb$"},
+        "dtb_overlays": {"$ref": "#/$defs/relpath"},
+        "android_gpu": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required_patches", "rejected_patches", "qualified_gpu_inputs", "qualified_notes_sha256", "kernel_inputs", "admitted"],
+          "description": "Android GPU admission of this kernel (scripts/kernel/fp6-android-gpu-admission.py).",
+          "properties": {
+            "required_patches": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/relpath"}},
+            "rejected_patches": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/relpath"}},
+            "qualified_gpu_inputs": {"type": "string", "pattern": "^([0-9a-f]{64})?$"},
+            "qualified_notes_sha256": {"type": "string", "pattern": "^([0-9a-f]{64})?$"},
+            "kernel_inputs": {"$ref": "#/$defs/sha256"},
+            "admitted": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "boot": {
+      "type": "object", "additionalProperties": false, "required": ["config"],
+      "properties": {"config": {"const": "boot.toml"}}
+    },
+    "userspace": {
+      "type": "object", "additionalProperties": false, "required": ["rpm_requires"],
+      "properties": {
+        "rpm_requires": {
+          "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true,
+          "items": {"type": "string", "maxLength": 128, "pattern": "^[a-z0-9][A-Za-z0-9+_.-]*( (>=|=) [A-Za-z0-9.:+_~^-]+)?$"}
+        }
+      }
+    },
+    "initramfs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ramdisk_sha256", "base"],
+      "properties": {
+        "ramdisk_sha256": {"$ref": "#/$defs/sha256"},
+        "base": {"type": "string", "minLength": 3, "maxLength": 80},
+        "init_functions": {"$ref": "#/$defs/relpath"},
+        "init_functions_sha256": {"$ref": "#/$defs/sha256"},
+        "ostree_package": {"type": "string", "pattern": "^ostree-[0-9.]+-[A-Za-z0-9._]+$"},
+        "ostree_source": {"$ref": "#/$defs/relpath"}
+      },
+      "dependentRequired": {"init_functions": ["init_functions_sha256"]}
+    },
+    "firmware": {
+      "type": "object", "additionalProperties": false,
+      "required": ["manifest", "manifest_sha256", "files", "store"],
+      "properties": {
+        "manifest": {"const": "firmware.manifest"},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "files": {"type": "integer", "minimum": 0},
+        "store": {"type": "string", "pattern": "^/(var/[A-Za-z0-9_./-]+|usr/lib/firmware)$"}
+      }
+    },
+    "install": {
+      "type": "object", "additionalProperties": false, "required": ["guide", "method", "preserve"],
+      "properties": {
+        "guide": {"const": "INSTALL.md"},
+        "method": {"enum": ["fastboot", "installer", "uefi", "other"]},
+        "preserve": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/slug"}}
+      }
+    },
+    "updates": {
+      "type": "object", "additionalProperties": false, "required": ["ostree_ref"],
+      "properties": {"ostree_ref": {"type": "string", "pattern": "^luma/[0-9]+/[a-z0-9_]+(/[a-z0-9-]+)?/[a-z0-9-]+$"}}
+    },
+    "device_repo": {
+      "description": "Signed rpm-md repository (Luma OS Release key) with only this device's packages, layered client-side onto the generic OS commit. Phones get it offline from the device kit on the first boot; rpm-ostree upgrades then follow url.",
+      "type": "object", "additionalProperties": false, "required": ["id", "url", "install"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^luma-[a-z0-9][a-z0-9_-]*$", "maxLength": 64},
+        "url": {"type": "string", "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9._~/%-]*/$"},
+        "replace": {"description": "Base packages replaced by the repository's builds (rpm-ostree override replace --from repo=id).", "type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/package"}},
+        "install": {"description": "Packages layered on top (rpm-ostree install).", "type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/package"}}
+      }
+    },
+    "boot_update": {
+      "description": "The device's boot image ships in a device package and follows the deployment (luma-device-boot, luma-update): written to the inactive A/B slot, made active for one try, marked successful once its kernel runs; the bootloader falls back otherwise.",
+      "type": "object", "additionalProperties": false, "required": ["package", "slots", "partitions"],
+      "properties": {
+        "package": {"description": "The package that carries the boot image with its kernel's modules; one of [device_repo] install.", "$ref": "#/$defs/package"},
+        "slots": {"description": "The slot tool luma-device-boot drives.", "enum": ["qbootctl"]},
+        "partitions": {"description": "The only partitions luma-device-boot may write, both slots of each.", "type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "pattern": "^(boot|dtbo|init_boot|vendor_boot)_[ab]$"}}
+      }
+    },
+    "kit": {
+      "description": "The device kit (scripts/devices/build-device-kit.py): boot image, offline device repository on the generic phone userdata image's LumaBoot, flash steps.",
+      "type": "object", "additionalProperties": false, "required": ["compatible", "flash"],
+      "properties": {
+        "compatible": {"description": "Device-tree compatible strings that identify this device; the first-boot layer refuses a kit none of them match.", "type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*,[A-Za-z0-9][A-Za-z0-9._+-]*$"}},
+        "flash": {"description": "fastboot commands in order, with {userdata}, {kit}, {boot} and {dtbo} for the kit's files.", "type": "array", "minItems": 2, "items": {"type": "string", "pattern": "^(flash [a-z0-9_]+ \\{(userdata|kit|boot|dtbo)\\}|boot \\{boot\\}|--set-active=[ab]|reboot)$"}}
+      }
+    },
+    "releases": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "date", "boot_image", "boot_image_sha256"],
+        "properties": {
+          "name": {"$ref": "#/$defs/slug"},
+          "date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+          "boot_image": {"$ref": "#/$defs/url"},
+          "boot_image_sha256": {"$ref": "#/$defs/sha256"},
+          "system_image": {"$ref": "#/$defs/url"},
+          "system_image_sha256": {"$ref": "#/$defs/sha256"},
+          "kit_image": {"$ref": "#/$defs/url"},
+          "kit_image_sha256": {"$ref": "#/$defs/sha256"},
+          "dtbo_image": {"$ref": "#/$defs/url"},
+          "dtbo_image_sha256": {"$ref": "#/$defs/sha256"},
+          "guide": {"$ref": "#/$defs/url"}
+        },
+        "dependentRequired": {
+          "system_image": ["system_image_sha256"],
+          "kit_image": ["kit_image_sha256"],
+          "dtbo_image": ["dtbo_image_sha256"]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"kernel": {"required": ["source_lock"]}}},
+      "then": {"properties": {"tier": {"const": "experimental"}}}
+    },
+    {
+      "if": {"properties": {"tier": {"const": "supported"}}},
+      "then": {"required": ["releases", "updates"], "properties": {"releases": {"minItems": 1}}}
+    }
+  ],
+  "$defs": {
+    "slug": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$", "maxLength": 40},
+    "package": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$", "maxLength": 128},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "url": {"type": "string", "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9._~/%-]*$"},
+    "relpath": {"type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./+-]*$", "not": {"pattern": "(^|/)\\.\\.(/|$)"}}
+  }
+}

@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=Mark the boot slot successful
+Documentation=https://github.com/SimplyLuma/luma/blob/main/devices/README.md
+# On a device that declares a boot image. A slot written by
+# luma-device-boot.service is marked only once its declared kernel runs; a trial
+# boot that never gets there is undone by the bootloader's A/B fallback.
+ConditionPathExists=/run/ostree-booted
+ConditionDirectoryNotEmpty=/usr/lib/luma/device-boot
+After=multi-user.target luma-device-boot.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/luma-device-boot confirm
+StateDirectory=luma-device-boot
+StateDirectoryMode=0700
+
+[Install]
+WantedBy=multi-user.target

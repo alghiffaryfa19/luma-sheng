@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<schemalist>
+  <enum id="org.projectluma.Ari.ApprovalMode">
+    <value nick="system" value="0"/>
+    <value nick="all" value="1"/>
+    <value nick="never" value="2"/>
+  </enum>
+  <schema id="org.projectluma.Ari" path="/org/projectluma/ari/">
+    <key name="enabled" type="b">
+      <default>true</default>
+      <summary>Let Ari use this computer</summary>
+      <description>When off, Ari's model and tools stop and nothing is asked of her. Administrators can lock this key with dconf to keep assistants off a managed machine.</description>
+    </key>
+    <key name="approval-mode" enum="org.projectluma.Ari.ApprovalMode">
+      <default>'system'</default>
+      <summary>When Ari asks before making a change</summary>
+      <description>"all": ask every time. "system": ask for important actions, once per requested application task. "never": skip Ari's confirmations. Advanced action permissions override these defaults. Application, operating-system and administrator controls still apply.</description>
+    </key>
+  </schema>
+</schemalist>

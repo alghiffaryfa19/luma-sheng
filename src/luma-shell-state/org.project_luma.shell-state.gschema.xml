@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.project_luma.shell-state" path="/org/project-luma/shell-state/">
+    <key name="home-layouts" type="s">
+      <default>'{}'</default>
+      <summary>Saved Mobile and Tablet Home grids</summary>
+      <description>Versioned whole-cell positions and spans, per presentation and logical grid dimensions. Explicit moves persist independently from automatic application discovery.</description>
+    </key>
+    <key name="home-columns" type="u">
+      <range min="0" max="12"/>
+      <default>0</default>
+      <summary>Preferred Home icon columns</summary>
+      <description>Zero fits the screen automatically. Manual counts are limited by available space to preserve usable touch targets. Applies to Mobile and Tablet Home, not the Desktop.</description>
+    </key>
+    <key name="home-rows" type="u">
+      <range min="0" max="12"/>
+      <default>0</default>
+      <summary>Preferred Home icon rows</summary>
+      <description>Zero fits the screen automatically. Widgets share these whole cells. Counts are bounded by the space above the dock.</description>
+    </key>
+    <key name="home-icon-size" type="s">
+      <choices><choice value="automatic"/><choice value="small"/><choice value="medium"/><choice value="large"/></choices>
+      <default>'automatic'</default>
+      <summary>Home icon size</summary>
+      <description>Preferred icon size within each cell. Icons always fit their cells; touch targets do not shrink with the artwork.</description>
+    </key>
+    <key name="home-show-labels" type="b">
+      <default>true</default>
+      <summary>Show app names on Home</summary>
+      <description>Hide visual app labels without removing their accessible names. Dock icons remain unlabeled.</description>
+    </key>
+    <key name="presentation-mode" type="s">
+      <choices><choice value="automatic"/><choice value="desktop"/><choice value="tablet"/><choice value="mobile"/></choices>
+      <default>'automatic'</default>
+      <summary>Preferred shell presentation</summary>
+      <description>Automatic follows the device profile and native seat posture. An explicit choice persists across restarts and accessory changes. Layout size and input capabilities remain independent.</description>
+    </key>
+    <key name="posture" type="s">
+      <choices><choice value="automatic"/><choice value="tv"/></choices>
+      <default>'automatic'</default>
+      <summary>Shell posture</summary>
+      <description>TV runs the shell's TV home, driven by a remote, with apps full screen. Automatic follows the presentation, or TV when the device declares itself a television. The presentation choice is kept underneath and returns unchanged when TV is turned off.</description>
+    </key>
+    <key name="tv-idle-delay" type="i">
+      <range min="-1" max="86400"/>
+      <default>-1</default>
+      <summary>TV idle view delay</summary>
+      <description>Seconds without input before a TV app shows its idle view, in TV posture. -1 leaves the delay to each app (Weather 20 s, Tide 15 s while playing); 0 never shows it. Settings › Idle &amp; Sleep › Show the idle view after.</description>
+    </key>
+    <key name="tv-screen-edges" type="u">
+      <range min="0" max="10"/>
+      <default>0</default>
+      <summary>TV screen edges</summary>
+      <description>Percent of the screen given back at the edges in TV posture, for a TV that cuts off the picture (overscan): the shell draws everything that much smaller about the centre. Settings › Display › Fit › Screen edges.</description>
+    </key>
+    <key name="tv-confirm-button" type="s">
+      <choices><choice value="automatic"/><choice value="south"/><choice value="east"/></choices>
+      <default>'automatic'</default>
+      <summary>Gamepad OK button in TV posture</summary>
+      <description>Which face button is OK; the other of the two is Back. South is the bottom button (A on Xbox-style pads, Cross on PlayStation), East the right one (A on Nintendo-style pads). Automatic picks East for controllers that identify as Nintendo layout and South for the rest; a pad that misreports its layout needs the explicit choice.</description>
+    </key>
+    <key name="surface-treatment" type="s">
+      <choices><choice value="light"/><choice value="dark"/><choice value="frost"/><choice value="glass"/></choices>
+      <default>'light'</default>
+      <summary>Surface treatment</summary>
+      <description>One manual treatment for native shell and application surfaces. Until explicitly chosen, preserve the current system color scheme. Frost and Glass require live renderer support; unsupported applications stay opaque.</description>
+    </key>
+    <key name="reduce-transparency" type="b">
+      <default>false</default>
+      <summary>Reduce transparency</summary>
+      <description>Use opaque surfaces for accessibility. Frost and Glass both fall back to Light without overwriting the chosen treatment.</description>
+    </key>
+    <key name="backdrop-blur" type="b">
+      <default>true</default>
+      <summary>Render live backdrop blur</summary>
+      <description>Device capability, not an accessibility preference. When false, Shell surfaces skip the live blur of what lies behind them but keep their translucent fill; use it on hardware where sampling the framebuffer behind every blurred surface is costly. Reduce transparency, not this key, makes surfaces opaque.</description>
+    </key>
+    <key name="schema-version" type="u">
+      <default>2</default>
+      <summary>Shell-state contract version</summary>
+    </key>
+    <key name="home-apps" type="as">
+      <default>[]</default>
+      <summary>Explicit ordered Home applications</summary>
+      <description>An empty list makes Home follow the canonical favorites order.</description>
+    </key>
+    <key name="mobile-launcher-columns" type="u">
+      <range min="3" max="6"/>
+      <default>4</default>
+      <summary>Preferred handheld launcher column count</summary>
+    </key>
+    <key name="input-method" type="s">
+      <default>'luma-latin'</default>
+      <summary>Preferred virtual input method</summary>
+    </key>
+    <key name="restore-app-state" type="b">
+      <default>true</default>
+      <summary>Restore supported applications across posture transitions</summary>
+    </key>
+    <key name="shelf-layout-version" type="u">
+      <range min="1" max="1"/>
+      <default>1</default>
+      <summary>Shelf layout contract version</summary>
+    </key>
+    <key name="shelf-edge" type="s">
+      <choices>
+        <choice value="bottom"/>
+        <choice value="top"/>
+        <choice value="left"/>
+        <choice value="right"/>
+      </choices>
+      <default>'bottom'</default>
+      <summary>Screen edge that owns the Shelf</summary>
+    </key>
+    <key name="shelf-dock-anchor" type="s">
+      <choices>
+        <choice value="start"/>
+        <choice value="center"/>
+        <choice value="end"/>
+      </choices>
+      <default>'center'</default>
+      <summary>Dock anchor within the Shelf edge</summary>
+    </key>
+    <key name="shelf-actions-anchor" type="s">
+      <choices>
+        <choice value="start"/>
+        <choice value="center"/>
+        <choice value="end"/>
+      </choices>
+      <default>'center'</default>
+      <summary>Action island anchor within the Shelf edge</summary>
+    </key>
+    <key name="shelf-group-layout" type="s">
+      <choices>
+        <choice value="centered-combined"/>
+        <choice value="split-ends"/>
+        <choice value="luma"/>
+      </choices>
+      <default>'luma'</default>
+      <summary>Relationship between Shelf islands</summary>
+    </key>
+    <key name="shelf-surface-mode" type="s">
+      <choices>
+        <choice value="separate"/>
+        <choice value="connected"/>
+      </choices>
+      <default>'separate'</default>
+      <summary>Whether Shelf islands share one visual surface</summary>
+    </key>
+    <key name="shelf-edge-mode" type="s">
+      <choices>
+        <choice value="floating"/>
+        <choice value="protruding"/>
+      </choices>
+      <default>'floating'</default>
+      <summary>Whether the Shelf floats inside or protrudes from its edge</summary>
+    </key>
+    <key name="shelf-span-full" type="b">
+      <default>false</default>
+      <summary>Stretch the Dash along its selected monitor edge</summary>
+    </key>
+    <key name="shelf-float-ends" type="b">
+      <default>true</default>
+      <summary>Keep end gutters when the Dash spans its edge</summary>
+      <description>Retained while spanning is disabled; has no effect until spanning is enabled.</description>
+    </key>
+    <key name="window-border-enabled" type="b">
+      <default>true</default>
+      <summary>Show a desktop border around maximized windows</summary>
+      <description>Leave the wallpaper visible at unoccupied screen edges. Fullscreen windows bypass this border.</description>
+    </key>
+    <key name="window-border-size" type="i">
+      <range min="1" max="64"/>
+      <default>14</default>
+      <summary>Maximized window border in logical pixels</summary>
+      <description>Set the desktop border independently of the Dash padding. Until explicitly chosen, preserve the existing Dash padding.</description>
+    </key>
+    <key name="shelf-padding" type="i">
+      <range min="4" max="24"/>
+      <default>11</default>
+      <summary>Dash content padding and floating edge gaps</summary>
+      <description>Logical pixels around each island's content and at floating screen edges. Icon spacing is independent.</description>
+    </key>
+    <key name="status-frame" type="s">
+      <choices><choice value="none"/><choice value="stroke"/><choice value="fill"/><choice value="both"/></choices>
+      <default>'none'</default>
+      <summary>Dash system status frame</summary>
+    </key>
+    <key name="status-frame-scope" type="s">
+      <choices><choice value="all"/><choice value="controls"/><choice value="split"/><choice value="joined"/><choice value="flush"/></choices>
+      <default>'all'</default>
+      <summary>Dash system status frame scope</summary>
+    </key>
+    <key name="status-divider" type="b">
+      <default>true</default>
+      <summary>Dash system status divider</summary>
+    </key>
+    <key name="status-glyph-tiles" type="b">
+      <default>true</default>
+      <summary>Dash system status glyph tiles</summary>
+    </key>
+    <key name="status-controls-right" type="b">
+      <default>true</default>
+      <summary>Dash system status controls right</summary>
+    </key>
+    <key name="status-fill-strength" type="s">
+      <choices><choice value="14"/><choice value="34"/><choice value="100"/></choices>
+      <default>'14'</default>
+      <summary>Dash system status fill strength</summary>
+    </key>
+    <key name="status-clock-fill" type="s">
+      <default>'#7f8892'</default>
+      <summary>Dash system status clock fill</summary>
+    </key>
+    <key name="status-controls-fill" type="s">
+      <default>'#7f8892'</default>
+      <summary>Dash system status controls fill</summary>
+    </key>
+    <key name="status-time-size" type="i">
+      <range min="10" max="21"/>
+      <default>21</default>
+      <summary>Dash system status time size</summary>
+    </key>
+    <key name="status-date-size" type="i">
+      <range min="7" max="14"/>
+      <default>11</default>
+      <summary>Dash system status date size</summary>
+    </key>
+    <key name="shelf-material" type="s">
+      <choices>
+        <choice value="dark"/>
+        <choice value="light"/>
+        <choice value="glass"/>
+        <choice value="frost"/>
+      </choices>
+      <default>'dark'</default>
+      <summary>Shelf material family</summary>
+      <description>Dark is production-ready. Light, Glass, and Frost are reserved contract values for later treatments.</description>
+    </key>
+    <key name="shelf-monitor-mode" type="s">
+      <choices>
+        <choice value="primary"/>
+        <choice value="all"/>
+      </choices>
+      <default>'primary'</default>
+      <summary>Monitors that receive a Shelf</summary>
+    </key>
+    <key name="shelf-overflow-mode" type="s">
+      <choices>
+        <choice value="scroll"/>
+      </choices>
+      <default>'scroll'</default>
+      <summary>Dock overflow behavior</summary>
+    </key>
+    <key name="shelf-dock-visible" type="b">
+      <default>true</default>
+      <summary>Show the Shelf dock island</summary>
+    </key>
+    <key name="shelf-actions-visible" type="b">
+      <default>true</default>
+      <summary>Show the Shelf action and status island</summary>
+    </key>
+    <key name="shelf-reserve-work-area" type="b">
+      <default>true</default>
+      <summary>Keep ordinary windows out of the Shelf region</summary>
+    </key>
+    <key name="shelf-auto-hide" type="b">
+      <default>false</default>
+      <summary>Automatically hide the Shelf</summary>
+      <description>Reserved for a future policy. The production v1 Shelf remains visible.</description>
+    </key>
+    <key name="shelf-islands" type="as">
+      <default>['dock', 'actions']</default>
+      <summary>Ordered first-party Shelf island identifiers</summary>
+    </key>
+    <key name="shelf-free-placement" type="b">
+      <default>false</default>
+      <summary>Allow islands anywhere along an edge</summary>
+      <description>ADR-044. Off: an island goes beside another island or to an edge's start, center or end, and a stored free position is drawn at the nearest of those. On: islands may also sit at any position along an edge.</description>
+    </key>
+    <key name="shelf-arrangement" type="aa{sv}">
+      <default>[]</default>
+      <summary>Where each group of Shelf islands is placed</summary>
+      <description>ADR-044. Each entry is one group of attached islands: 'display' (s: '' follows the primary monitor, otherwise 'connector|vendor|product|serial'), 'edge' (s: top, bottom, left or right), 'anchor' (s: start, center, end or free), 'position' (d: 0.0 to 1.0, the group centre along the edge when anchor is free) and 'islands' (as: dock, live, media, well, quick-options, clock, notifications, in physical order). Empty means the default layout derived from shelf-edge, shelf-dock-anchor, shelf-actions-anchor and shelf-group-layout.</description>
+    </key>
+    <key name="dock-folders" type="as">
+      <default>[]</default>
+      <summary>Folders pinned to the Dock</summary>
+      <description>Folder URIs, in the order they are shown. Each one gets a tile after the applications, behind the Dash's divider, that opens the folder in place.</description>
+    </key>
+    <key name="dock-folders-visible" type="b">
+      <default>true</default>
+      <summary>Show the pinned folders in the Dash</summary>
+      <description>Off hides the folders rail without unpinning anything: the folders keep their places, their arrangements and their counts, and come back as they were.</description>
+    </key>
+    <key name="dock-folders-separate" type="b">
+      <default>true</default>
+      <summary>Show the Dock folders as an island of their own</summary>
+      <description>Off: the folders are a part of the Dock, with the divider in front of them. On (the default): they leave the Dock and become the 'folders' island, placed and moved like any other island.</description>
+    </key>
+    <key name="dock-folders-views" type="a{ss}">
+      <default>{}</default>
+      <summary>The arrangement each Dock folder opens in</summary>
+      <description>Folder URI to 'stack' (a list) or 'grid' (an icon view). A folder with no entry opens as a Stack.</description>
+    </key>
+    <key name="dock-folders-seen" type="a{sx}">
+      <default>{}</default>
+      <summary>When each Dock folder was last opened</summary>
+      <description>Folder URI to a Unix time. The tile's count is the files created since then, so opening a folder clears it. A file system that cannot report creation times shows no count.</description>
+    </key>
+    <key name="dock-folders-detached" type="a{sv}">
+      <default>{}</default>
+      <summary>A Dock folder left open away from the Dock</summary>
+      <description>The folder broken out of the Dock when the session ended: 'uri' (s), 'x' and 'y' (i, its position) and 'monitors' (s, the display layout it was left on). It is reopened there only if that layout is still the one in use.</description>
+    </key>
+    <key name="touchpad-app-switch" type="b">
+      <default>false</default>
+      <summary>Three fingers sideways switches app</summary>
+      <description>When enabled, three-finger horizontal swipes switch apps. Use four-finger desktop switching to keep the gestures separate.</description>
+    </key>
+    <key name="touchpad-workspace-fingers" type="i">
+      <default>3</default>
+      <summary>Fingers that switch workspace</summary>
+      <description>Three-finger horizontal swipes switch desktops by default. Four leaves three-finger swipes available for optional app switching.</description>
+      <range min="3" max="4"/>
+    </key>
+    <key name="touchpad-gesture-migration" type="u">
+      <default>0</default>
+      <summary>Whether the gesture defaults have been written once</summary>
+      <description>Records gesture initialization without replacing existing preferences.</description>
+    </key>
+    <key name="presentation-idle-default" type="i">
+      <default>-1</default>
+      <range min="-1" max="86400"/>
+      <summary>Last screen-idle default projected by the presentation policy</summary>
+      <description>Tracks ownership of the shared session idle setting. Explicit user preferences take precedence; -1 means the policy does not own it.</description>
+    </key>
+    <key name="presentation-button-layout" type="ms">
+      <default>nothing</default>
+      <summary>Desktop window-control layout kept while Tablet or Mobile owns it</summary>
+      <description>Tablet and Mobile hide window controls through org.gnome.desktop.wm.preferences button-layout. This keeps the layout to restore on Desktop; an empty string restores the system default and nothing means the presentation policy does not own the setting.</description>
+    </key>
+  </schema>
+</schemalist>

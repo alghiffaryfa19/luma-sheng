@@ -1,0 +1,21 @@
+[Unit]
+Description=Luma Monitor host activity and owned process interface
+
+[Service]
+Type=dbus
+BusName=org.projectluma.MonitorHost1
+ExecStart=/usr/bin/luma-monitor-host
+# No CPUQuota: a 25% quota made every sample and caller check four times
+# slower in wall time, including the first one a window waits for. The API
+# samples only on request and reuses a sample for 0.4 s, and the lower weight
+# yields to other work when the CPU is contended.
+CPUWeight=50
+MemoryMax=256M
+TasksMax=16
+NoNewPrivileges=yes
+# A user-service mount sandbox creates a private user namespace. The broker
+# must stay in the host user namespace to verify the signed Flatpak proxy's
+# live /proc identity and lifecycle pipe; a sibling namespace cannot read it.
+# Keep this service unprivileged and retain process/resource restrictions.
+RestrictAddressFamilies=AF_UNIX
+RestrictSUIDSGID=yes
