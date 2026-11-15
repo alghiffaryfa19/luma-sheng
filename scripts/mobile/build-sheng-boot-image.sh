@@ -56,12 +56,29 @@ done
 [ -n "$kernel_image" ] || { printf 'build-sheng-boot-image: --kernel Image.gz is required\n' >&2; exit 2; }
 [ -n "$dtb_file" ] || { printf 'build-sheng-boot-image: --dtb sm8550-xiaomi-sheng.dtb is required\n' >&2; exit 2; }
 
-for tool in cpio gzip mkbootimg sha256sum truncate; do
+for tool in cpio gzip sha256sum truncate; do
   command -v "$tool" >/dev/null 2>&1 || {
     printf 'build-sheng-boot-image: missing required tool: %s\n' "$tool" >&2
     exit 1
   }
 done
+
+# Resolve working mkbootimg tool
+mkbootimg_cmd=""
+if [ -n "${MKBOOTIMG:-}" ]; then
+  mkbootimg_cmd="$MKBOOTIMG"
+elif [ -f "$repo_root/tools/mkbootimg" ]; then
+  mkbootimg_cmd="python3 $repo_root/tools/mkbootimg"
+elif [ -f /usr/local/bin/mkbootimg ]; then
+  mkbootimg_cmd="python3 /usr/local/bin/mkbootimg"
+elif command -v mkbootimg >/dev/null 2>&1 && mkbootimg --help >/dev/null 2>&1; then
+  mkbootimg_cmd="$(command -v mkbootimg)"
+fi
+
+if [ -z "$mkbootimg_cmd" ]; then
+  printf 'build-sheng-boot-image: working mkbootimg tool not found\n' >&2
+  exit 1
+fi
 
 mkdir -p "$output_dir"
 output_dir=$(realpath "$output_dir")
@@ -207,7 +224,7 @@ build_one_boot_img() {
 
   build_initramfs "$target_mode" "$ramdisk"
 
-  mkbootimg \
+  $mkbootimg_cmd \
     --header_version 2 \
     --kernel "$kernel_image" \
     --ramdisk "$ramdisk" \

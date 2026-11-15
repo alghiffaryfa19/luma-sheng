@@ -60,9 +60,12 @@ jobs:
         run: |
           sudo apt-get install -y \
             bc bison build-essential cpio curl device-tree-compiler e2fsprogs \
-            fdisk flex git gzip kmod libssl-dev libelf-dev mkbootimg \
+            fdisk flex git gzip kmod libssl-dev libelf-dev \
             ostree podman policycoreutils python3-minimal rsync tar \
             udev xz-utils zstd android-sdk-libsparse-utils busybox-static
+          sudo curl -fsSL -o /usr/local/bin/mkbootimg https://raw.githubusercontent.com/alghiffaryfa19/Linux-xiaomi-sheng/refs/heads/sheng/mkbootimg
+          sudo chmod +x /usr/local/bin/mkbootimg
+          /usr/local/bin/mkbootimg --help >/dev/null
 
       - name: Clone and verify Xiaomi Pad 6S Pro firmware
         run: |
