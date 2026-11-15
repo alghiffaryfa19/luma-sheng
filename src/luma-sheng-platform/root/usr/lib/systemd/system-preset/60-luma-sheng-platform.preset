@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# Xiaomi Pad 6S Pro 12.4 (sheng) platform preset.
+enable luma-sheng-boot-success.service
+enable luma-clock-restore.service
+enable luma-clock-save.timer
+enable sheng-devauth.service
+enable xiaomi-sheng-thp.service
+enable xiaomi-mipps-auth.service
+enable xiaomi-charger-mode.service
+enable xiaomi-sheng-keyboard-helper-angle.service
+enable adsprpcd-sensorspd.service
+enable sheng-audio-init.service
+enable sheng-fake-tablet-mode.service
+enable sheng-power-key-toggle.service
+enable qteesupplicant.service
+enable sfsconfig.service
+enable fprintd.service
+enable iio-sensor-proxy.service
+

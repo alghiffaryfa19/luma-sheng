@@ -1,0 +1,25 @@
+# Xiaomi Pad 6S Pro 12.4 (sheng): merged over config/kernel/sm8550-sheng.config.
+#
+# Built in, so rofiles-fuse works before kernel-modules-luma-sheng is layered:
+# rpm-ostree runs package scripts on a FUSE mount, including the transaction
+# that installs the device repository on a fresh device (port-a-phone.md section 0).
+CONFIG_FUSE_FS=y
+
+# OSTree composefs, overlayfs and initramfs decompression built in for early boot.
+CONFIG_OVERLAY_FS=y
+CONFIG_EROFS_FS=y
+CONFIG_EROFS_FS_ZIP=y
+CONFIG_EROFS_FS_ZIP_ZSTD=y
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_RD_GZIP=y
+CONFIG_RD_ZSTD=y
+
+# SELinux and Android container (luma-android-runtime) requirements.
+CONFIG_SECURITY_SELINUX=y
+CONFIG_SECURITY_SELINUX_BOOTPARAM=y
+CONFIG_ANDROID_BINDER_IPC=y
+CONFIG_ANDROID_BINDERFS=y
+CONFIG_DMABUF_HEAPS=y
+CONFIG_DMABUF_HEAPS_SYSTEM=y
+CONFIG_DMABUF_HEAPS_CMA=y
+

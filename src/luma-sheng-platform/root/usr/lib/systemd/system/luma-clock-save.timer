@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically record the wall clock for the next boot
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=15min
+
+[Install]
+WantedBy=timers.target
+

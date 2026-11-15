@@ -1,0 +1,115 @@
+# SPDX-License-Identifier: Apache-2.0
+schema = 1
+vendor = "xiaomi"
+codename = "sheng"
+name = "Xiaomi Pad 6S Pro 12.4"
+marketing_name = "Xiaomi Pad 6S Pro"
+form_factor = "tablet"
+year = 2024
+soc = "qcom/sm8550"
+tier = "experimental"
+maintainers = ["@alghiffaryfa19"]
+fastboot_product = "sheng"
+
+[kernel]
+tag = "luma-kernel-7.2.15-luma-sm8550"
+release = "7.2.15-luma-sm8550"
+config = "config/kernel/sm8550-sheng.config"
+# Merged over config in order: builds FUSE, overlayfs, erofs and SELinux in.
+config_fragments = ["config/kernel/sheng.fragment"]
+dtb = "qcom/sm8550-xiaomi-sheng.dtb"
+
+[boot]
+config = "boot.toml"
+
+[firmware]
+manifest = "firmware.manifest"
+manifest_sha256 = "6838a8b3da16d52b209e35a9bff1e0ee8112bc43164a4f0b02e33af77f3117eb"
+files = 37
+# Installed into /usr/lib/firmware by luma-sheng-firmware from the device repository:
+#  - qcom/sm8550/sheng/{adsp,adsp_dtb,cdsp,cdsp_dtb,a740_zap,devauth,ipa_fws,vpu30_4v}.mbn
+#    and {adspr,adsps,adspua,battmgr,cdspr}.jsn: remote processor, GPU zap shader,
+#    battery manager and Xiaomi keyboard TrustZone authentication firmware.
+#  - qcom/sm8550/Xiaomi-Pad6SPro-tplg.bin: AudioReach topology for the 6-speaker
+#    Cirrus Logic CS35L43 + WCD938x sound card.
+#  - cirrus/{blh,bll,brl,tlh,tll,trl}-cs35l43-dsp1-spk-prot.{bin,wmfw}: speaker
+#    protection DSP firmware and coefficients for the six CS35L43 amplifiers.
+#  - ath12k/WCN7850/hw2.0/{amss.bin,board-2.bin,board.bin,m3.bin,Notice.txt}:
+#    Qualcomm FastConnect 7800 (WCN7850) Wi-Fi 7 firmware and board calibration.
+#  - qca/{hmtbtfw20.tlv,hmtnv20.bin}: Bluetooth firmware and NVRAM.
+#  - novatek/novatek_nt36532_n81a_fw_csot.bin: Novatek NT36532E touchscreen and
+#    stylus controller firmware.
+#  - nanosic/MCU_Upgrade.bin: NanoSIC Pogo-pin keyboard MCU firmware.
+#  - fpcsheng.elf: FPC1553 fingerprint TrustZone applet.
+store = "/usr/lib/firmware"
+
+[install]
+guide = "INSTALL.md"
+method = "fastboot"
+# Partitions the install must never erase or write. persist, secdata, devinfo,
+# fsg, fsc, modemst1 and modemst2 hold per-device calibration, Widevine/TEE keys
+# and factory identity; bootloader and TrustZone chains stay untouched.
+preserve = [
+  "persist", "fsg", "fsc", "modemst1", "modemst2", "secdata", "devinfo",
+  "xbl_a", "xbl_b", "xbl_config_a", "xbl_config_b", "abl_a", "abl_b",
+  "tz_a", "tz_b", "hyp_a", "hyp_b", "shrm_a", "shrm_b", "aop_a", "aop_b",
+  "aop_config_a", "aop_config_b", "uefi_a", "uefi_b", "devcfg_a", "devcfg_b",
+  "keymaster_a", "keymaster_b", "qupfw_a", "qupfw_b", "cpucp_a", "cpucp_b",
+  "featenabler_a", "featenabler_b", "imagefv_a", "imagefv_b",
+  "multiimgoem_a", "multiimgoem_b", "multiimgqti_a", "multiimgqti_b",
+  "qweslicstore_a", "qweslicstore_b",
+]
+
+[updates]
+# The one ARM OS commit; the device repository is a client-side layer.
+ostree_ref = "luma/1/aarch64/nightly"
+
+[device_repo]
+# Signed rpm-md repository with the Xiaomi Pad 6S Pro (sheng) hardware stack:
+# kernel modules, firmware, platform services, Qualcomm SSC sensors, FastRPC,
+# Novatek touch/stylus daemon, Pogo-pin keyboard authentication & backlight,
+# 120W MIPPS fast charging, FPC1553 fingerprint, 6-speaker audio and tablet mode.
+id = "luma-xiaomi-sheng"
+url = "https://dl.simplyluma.com/os/devices/aarch64/xiaomi-sheng/"
+replace = ["iio-sensor-proxy"]
+install = [
+  "kernel-modules-luma-sheng",
+  "luma-sheng-firmware",
+  "luma-sheng-platform",
+  "libssc",
+  "fastrpc",
+  "xiaomi-sheng-thp",
+  "sheng-devauth",
+  "xiaomi-mipps-auth",
+  "xiaomi-charger-mode",
+  "xiaomi-sheng-keyboard-helper",
+  "xiaomi-sheng-keyboard-backlight",
+  "xiaomi-pen-status",
+  "xiaomi-sheng-fingerprint",
+  "sheng-sensors",
+  "alsa-xiaomi-sheng",
+  "sheng-audio-fix",
+  "sheng-gnome-fix",
+  "qbootctl",
+]
+
+[boot_update]
+# kernel-modules-luma-sheng carries the boot image of its own kernel build in
+# /usr/lib/luma/device-boot/xiaomi-sheng/, so the modules and the kernel that
+# loads them change together.
+package = "kernel-modules-luma-sheng"
+slots = "qbootctl"
+partitions = ["boot_a", "boot_b"]
+
+[kit]
+compatible = ["xiaomi,sheng"]
+flash = [
+  "flash userdata {userdata}",
+  "flash userdata {kit}",
+  "flash dtbo_a {dtbo}",
+  "flash dtbo_b {dtbo}",
+  "flash boot_a {boot}",
+  "flash boot_b {boot}",
+  "boot {boot}",
+]
+

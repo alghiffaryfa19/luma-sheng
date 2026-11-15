@@ -1,0 +1,8 @@
+[Unit]
+Description=Record the wall clock for the next boot
+Documentation=man:hwclock(8)
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'date -u +%%s > /var/lib/luma/clock'
+

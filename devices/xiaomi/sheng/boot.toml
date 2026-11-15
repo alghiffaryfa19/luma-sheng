@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+# Boot policy for the Xiaomi Pad 6S Pro 12.4 (sheng). Format, page size and
+# offsets come from socs/qcom/sm8550/soc.toml.
+schema = 1
+partition = "boot"
+partition_size = 100663296
+
+[cmdline]
+# Fixed arguments, in order. udmabuf.size_limit_mb=256 is required by the
+# SM8550 display/camera and Wayland dmabuf paths on sheng.
+args = [
+  "udmabuf.size_limit_mb=256",
+  "quiet",
+  "splash",
+  "plymouth.ignore-serial-consoles",
+  "fbcon=map:1",
+  "console=tty0",
+  "pmos_rootfsopts=defaults",
+  "rootwait",
+  "ro",
+  "init=/init",
+  "enforcing=1",
+]
+# Filled in per image and per deployment by the image builder and libostree.
+generated = ["pmos_root_uuid", "pmos_boot_uuid", "ostree"]
+# Release images must keep SELinux enforcing; these may never appear.
+forbidden = ["selinux=0", "enforcing=0", "lsm="]
+
+[avb]
+# Unlocked Xiaomi ABL boots raw Android v2 boot images with Image.gz+dtb.
+# vbmeta stays as Xiaomi ships it (or with verification disabled by the user's
+# existing dual-boot setup); Luma never writes vbmeta.
+footer = "none"
+vbmeta = "untouched"
+
+[dtbo]
+# Luma ships its own complete DTB (qcom/sm8550-xiaomi-sheng.dtb) appended to the
+# kernel in the boot image. Stock Android DTBO overlays must not apply to it,
+# so dtbo is flashed blank (or erased on the target slot in dual-boot mode).
+policy = "blank"
+size = 25165824
+partitions = ["dtbo_a", "dtbo_b"]
+

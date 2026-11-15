@@ -1,0 +1,144 @@
+name: Build Luma OS (Xiaomi Pad 6S Pro / sheng)
+
+on:
+  workflow_dispatch:
+    inputs:
+      boot_mode:
+        description: "Target image mode (both, linux [Dual-Boot Slot B], or userdata [Device Kit])"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - linux
+          - userdata
+      luma_channel:
+        description: "Luma ARM OSTree ref to base on"
+        required: true
+        default: "luma/1/aarch64/nightly"
+        type: string
+      version:
+        description: "Device kit / release version string"
+        required: true
+        default: "0.1.0"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-luma-sheng:
+    name: Build Kernel, Sheng RPMs, Boot Images & Luma Rootfs
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Maximize runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h
+
+      - name: Checkout Luma repository
+        uses: actions/checkout@v4
+
+      - name: Validate device manifests and unit tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-jsonschema
+          python3 -B tools/check-devices.py --root .
+          python3 -B -m unittest tests/unit/test_device_tree.py devices/xiaomi/sheng/tests/test_xiaomi_sheng.py
+
+      - name: Install host kernel & image build dependencies
+        run: |
+          sudo apt-get install -y \
+            bc bison build-essential cpio curl device-tree-compiler e2fsprogs \
+            fdisk flex git gzip kmod libssl-dev libelf-dev mkbootimg \
+            ostree podman policycoreutils python3-minimal rsync tar \
+            udev xz-utils zstd android-sdk-libsparse-utils busybox-static
+
+      - name: Clone and verify Xiaomi Pad 6S Pro firmware
+        run: |
+          git clone --depth 1 https://github.com/ianchb/sheng-firmware.git /tmp/sheng-firmware
+          while IFS=$'\t' read -r kind mode sha256 relpath; do
+            [ "$kind" = "F" ] || continue
+            printf '%s  /tmp/sheng-firmware/%s\n' "$sha256" "$relpath" | sha256sum -c --quiet -
+          done < devices/xiaomi/sheng/firmware.manifest
+
+      - name: Clone and build SM8550 kernel (linux-sheng + Luma Kconfig fragment)
+        run: |
+          git clone --depth 1 https://github.com/Editor7075/linux-sheng.git /tmp/linux-sheng
+          cp config/kernel/sm8550-sheng.config /tmp/linux-sheng/.config
+          cd /tmp/linux-sheng
+          if [ -x scripts/kconfig/merge_config.sh ]; then
+            scripts/kconfig/merge_config.sh -m .config "$GITHUB_WORKSPACE/config/kernel/sheng.fragment"
+          else
+            cat "$GITHUB_WORKSPACE/config/kernel/sheng.fragment" >> .config
+          fi
+          make ARCH=arm64 olddefconfig
+          make -j"$(nproc)" ARCH=arm64 LOCALVERSION=-sm8550 Image.gz dtbs modules
+          KREL=$(make -s ARCH=arm64 LOCALVERSION=-sm8550 kernelrelease)
+          echo "KERNEL_RELEASE=$KREL" >> "$GITHUB_ENV"
+          mkdir -p /tmp/kernel-staging
+          make ARCH=arm64 LOCALVERSION=-sm8550 INSTALL_MOD_PATH=/tmp/kernel-staging modules_install
+          cp arch/arm64/boot/Image.gz /tmp/kernel-staging/Image.gz
+          cp arch/arm64/boot/dts/qcom/sm8550-xiaomi-sheng.dtb /tmp/kernel-staging/sm8550-xiaomi-sheng.dtb
+
+      - name: Build Android Boot Image(s) and Blank DTBO
+        run: |
+          chmod +x scripts/mobile/build-sheng-boot-image.sh
+          scripts/mobile/build-sheng-boot-image.sh \
+            --kernel /tmp/kernel-staging/Image.gz \
+            --dtb /tmp/kernel-staging/sm8550-xiaomi-sheng.dtb \
+            --modules-dir /tmp/kernel-staging/lib/modules \
+            --mode "${{ inputs.boot_mode }}" \
+            --version "${{ inputs.version }}" \
+            --output-dir "$GITHUB_WORKSPACE/build/sheng-boot"
+
+      - name: Build Xiaomi Pad 6S Pro RPMs and Device Repository in Fedora Container
+        run: |
+          chmod +x scripts/devices/build-sheng-rpms.sh
+          BOOT_ARG=()
+          if [ -f "$GITHUB_WORKSPACE/build/sheng-boot/luma-sheng-${{ inputs.version }}-boot.img" ]; then
+            BOOT_ARG=(--boot-image "$GITHUB_WORKSPACE/build/sheng-boot/luma-sheng-${{ inputs.version }}-boot.img")
+          elif [ -f "$GITHUB_WORKSPACE/build/sheng-boot/luma-sheng-${{ inputs.version }}-boot-linux.img" ]; then
+            BOOT_ARG=(--boot-image "$GITHUB_WORKSPACE/build/sheng-boot/luma-sheng-${{ inputs.version }}-boot-linux.img")
+          fi
+          scripts/devices/build-sheng-rpms.sh \
+            --output-dir "$GITHUB_WORKSPACE/build/sheng-repo" \
+            --firmware-dir /tmp/sheng-firmware \
+            --kernel-modules-dir /tmp/kernel-staging \
+            --kernel-release "$KERNEL_RELEASE" \
+            "${BOOT_ARG[@]}"
+
+      - name: Build Luma OSTree Image (PARTLABEL=linux) and/or Device Kit (userdata)
+        run: |
+          chmod +x scripts/devices/build-sheng-image.sh
+          scripts/devices/build-sheng-image.sh \
+            --device-repo "$GITHUB_WORKSPACE/build/sheng-repo" \
+            --boot-dir "$GITHUB_WORKSPACE/build/sheng-boot" \
+            --layout "${{ inputs.boot_mode }}" \
+            --ostree-ref "${{ inputs.luma_channel }}" \
+            --version "${{ inputs.version }}" \
+            --output-dir "$GITHUB_WORKSPACE/build/sheng-images"
+
+      - name: Compress PARTLABEL=linux image if built
+        run: |
+          if compgen -G "$GITHUB_WORKSPACE/build/sheng-images/*.img" >/dev/null; then
+            for img in "$GITHUB_WORKSPACE"/build/sheng-images/luma-sheng-*-linux.img; do
+              [ -f "$img" ] || continue
+              zstd -T0 -10 --rm "$img"
+            done
+          fi
+
+      - name: Upload Xiaomi Pad 6S ProRPM Repository Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: luma-xiaomi-sheng-rpms-${{ inputs.version }}
+          path: build/sheng-repo/
+
+      - name: Upload Xiaomi Pad 6S Pro Boot & Rootfs Images Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: luma-xiaomi-sheng-images-${{ inputs.version }}
+          path: |
+            build/sheng-boot/
+            build/sheng-images/
+

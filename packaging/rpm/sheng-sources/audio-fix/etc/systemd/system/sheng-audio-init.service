@@ -1,0 +1,13 @@
+[Unit]
+Description=sheng audio card bring-up (load ALSA codec modules, register card)
+After=systemd-udevd.service
+Requires=systemd-udevd.service
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/sheng-audio-init
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
